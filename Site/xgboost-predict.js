@@ -600,8 +600,8 @@ async function predictClientSide(responsesArray) {
     const confidenceScore = Math.min(85, Math.max(40, Math.floor(60 + (predictionTheoretical / 500) * 20)));
 
     return {
-        prediction: predictionReal, // On renvoie la réelle en temps que prédiction principale
-        predictionTheoretical: predictionTheoretical, // Optionnel, pour debug ou affichage alternatif
+        prediction: predictionTheoretical, // On conserve l'approche DPE normée
+        predictionReal: predictionReal,    // Valeur calculée pour la comparaison comportementale
         confidence_score: confidenceScore,
         features_used: features,
         model_used: `${region}/${surfaceKey}`,
