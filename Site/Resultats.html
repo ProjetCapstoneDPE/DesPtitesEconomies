@@ -521,8 +521,8 @@
                             <div class="bg-white/50 rounded-2xl p-5 border border-gray-100 flex flex-col items-center justify-center text-center">
                                 <div class="text-xs text-gray-400 font-medium uppercase tracking-wider mb-2">Théorique (DPE)</div>
                                 <div id="consoTheoBlock" class="text-3xl font-extrabold text-indigo-600 mb-1">—</div>
-                                <div class="text-sm font-semibold text-gray-600">kWh/an</div>
-                                <div class="mt-2 text-xs text-gray-500">Consommation standardisée</div>
+                                <div class="text-sm font-semibold text-gray-600">kWh EP/an</div>
+                                <div class="mt-2 text-xs text-gray-500">Énergie primaire</div>
                             </div>
 
                             <!-- Conso Réelle -->
@@ -533,7 +533,7 @@
                                 <div class="relative z-10">
                                     <div class="text-xs text-indigo-400 font-bold uppercase tracking-wider mb-2">Votre Usage Réel estimé</div>
                                     <div id="consoRealBlock" class="text-4xl font-extrabold text-indigo-700 mb-1">—</div>
-                                    <div class="text-sm font-semibold text-indigo-500 mb-3">kWh/an</div>
+                                    <div class="text-sm font-semibold text-indigo-500 mb-3">kWh EF/an (Énergie finale)</div>
                                     <div class="bg-indigo-600 text-white rounded-xl px-4 py-2 shadow-md inline-block">
                                         <div class="text-[10px] uppercase opacity-80 mb-0.5">Coût annuel de l'électricité</div>
                                         <div id="costRealBlock" class="text-xl font-bold">— €</div>
@@ -927,17 +927,18 @@
                 // ==========================================
                 // COMPARAISON THÉORIQUE / RÉEL
                 // ==========================================
-                const consoTheo = result.prediction;
-                const consoReal = result.predictionReal || consoTheo;
+                const consoTheoEP = result.prediction;
+                const consoRealEP = result.predictionReal || consoTheoEP;
+                const consoRealEF = consoRealEP / 2.3; // Conversion Énergie Primaire -> Énergie Finale
                 
                 const consoTheoEl = document.getElementById('consoTheoBlock');
                 const consoRealEl = document.getElementById('consoRealBlock');
                 const costRealEl = document.getElementById('costRealBlock');
                 
                 if (consoTheoEl && consoRealEl && costRealEl) {
-                    consoTheoEl.textContent = Math.round(consoTheo).toLocaleString('fr-FR');
-                    consoRealEl.textContent = Math.round(consoReal).toLocaleString('fr-FR');
-                    costRealEl.textContent = Math.round(consoReal * 0.2516).toLocaleString('fr-FR') + ' €';
+                    consoTheoEl.textContent = Math.round(consoTheoEP).toLocaleString('fr-FR');
+                    consoRealEl.textContent = Math.round(consoRealEF).toLocaleString('fr-FR');
+                    costRealEl.textContent = Math.round(consoRealEF * 0.2516).toLocaleString('fr-FR') + ' €';
                 }
 
                 // ==========================================
@@ -1019,8 +1020,9 @@
                         }, 500);
 
                         // Savings amount (basé sur la vraie différence)
-                        const savedEF = totalConsoEF - newPrediction;
-                        const savedEuros = Math.max(0, savedEF) * 0.22;
+                        const savedEP = totalConsoEF - newPrediction;
+                        const savedEF = savedEP / 2.3; // Conversion en énergie finale
+                        const savedEuros = Math.max(0, savedEF) * 0.2516;
                         document.getElementById('savingsAmount').textContent = `${Math.round(savedEuros)} € par an`;
 
                         // 6) Recommandations dynamiques basées sur les points critiques
