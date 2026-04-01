@@ -389,7 +389,7 @@
             const q = questions[index];
 
             // Animation out
-            qContainer.classList.remove('slide-in-right', 'fade-in', 'slide-out-left');
+            qContainer.classList.remove('slide-in-right', 'fade-in', 'slide-out-left', 'fade-out');
             void qContainer.offsetWidth; // trigger reflow
             qContainer.classList.add('fade-in');
 
@@ -562,11 +562,8 @@
             while (prevIdx >= 0) {
                 const q = questions[prevIdx];
                 if (!q.condition || q.condition(responses)) {
-                    qContainer.classList.add('fade-out'); // go back doesn't slide left
-                    setTimeout(() => {
-                        currentQuestion = prevIdx;
-                        displayQuestion(currentQuestion);
-                    }, 150);
+                    currentQuestion = prevIdx;
+                    displayQuestion(currentQuestion);
                     return;
                 }
                 prevIdx--;
