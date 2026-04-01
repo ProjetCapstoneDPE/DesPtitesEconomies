@@ -389,7 +389,7 @@
             const q = questions[index];
 
             // Animation out
-            qContainer.classList.remove('slide-in-right', 'fade-in');
+            qContainer.classList.remove('slide-in-right', 'fade-in', 'slide-out-left');
             void qContainer.offsetWidth; // trigger reflow
             qContainer.classList.add('fade-in');
 
