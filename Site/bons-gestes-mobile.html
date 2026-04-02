@@ -28,80 +28,119 @@
 
     <!-- Page Header -->
     <div class="px-5 pt-10 pb-4 text-center animate-fade-up">
-        <h1 class="text-2xl font-extrabold mb-1"><span class="gradient-text">Discutez avec Watty !</span></h1>
-        <p class="text-sm text-gray-500">Votre assistant éco-gestes personnel</p>
+        <h1 class="text-2xl font-extrabold mb-1"><span class="gradient-text">Les bons gestes</span></h1>
+        <p class="text-sm text-gray-500">Tous les conseils de Watty pour votre foyer</p>
     </div>
 
-    <!-- Chat Container -->
-    <div class="mx-4 glass-card rounded-3xl shadow-xl overflow-hidden animate-fade-up">
-        <!-- Chat Header -->
-        <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 flex items-center gap-3">
-            <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center border border-white/30">
-                <img src="Images/Image_6.png" alt="Watty" class="w-10 h-10 object-contain">
-            </div>
-            <div>
-                <h2 class="text-base font-bold text-white">Watty</h2>
-                <p class="text-xs text-white/75">Votre assistant énergie</p>
-            </div>
-            <div class="ml-auto flex items-center gap-1.5">
-                <div class="w-2 h-2 bg-green-400 rounded-full"></div>
-                <span class="text-xs text-white/80">En ligne</span>
-            </div>
-        </div>
+    <!-- Mobile Category Navigation -->
+    <div class="px-4 mb-8 overflow-x-auto whitespace-nowrap flex gap-2 pb-2 scrollbar-hide animate-fade-up delay-100">
+        <a href="#equipements" class="px-4 py-2 bg-white/80 border border-indigo-100 rounded-full text-xs font-bold text-indigo-600 shadow-sm active:scale-95 transition-transform">⚡ Équipements</a>
+        <a href="#chauffage" class="px-4 py-2 bg-white/80 border border-indigo-100 rounded-full text-xs font-bold text-indigo-600 shadow-sm active:scale-95 transition-transform">🌡️ Chauffage</a>
+        <a href="#dpe" class="px-4 py-2 bg-white/80 border border-indigo-100 rounded-full text-xs font-bold text-indigo-600 shadow-sm active:scale-95 transition-transform">🏡 DPE</a>
+        <a href="#climat" class="px-4 py-2 bg-white/80 border border-indigo-100 rounded-full text-xs font-bold text-indigo-600 shadow-sm active:scale-95 transition-transform">🌍 Climat</a>
+        <a href="#numerique" class="px-4 py-2 bg-white/80 border border-indigo-100 rounded-full text-xs font-bold text-indigo-600 shadow-sm active:scale-95 transition-transform">💻 Numérique</a>
+    </div>
 
-        <!-- Messages Area -->
-        <div class="p-4 min-h-[280px] max-h-[380px] overflow-y-auto space-y-3" id="chatMessages">
-            <div class="flex items-end gap-2">
-                <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <img src="Images/Image_6.png" alt="Watty" class="w-6 h-6 object-contain">
+    <!-- Mobile Articles -->
+    <div class="px-4 space-y-10">
+        
+        <!-- SECTION: ÉQUIPEMENTS -->
+        <section id="equipements" class="animate-fade-up delay-200">
+            <div class="flex items-center gap-2 mb-4">
+                <span class="material-icons text-amber-500">bolt</span>
+                <h2 class="text-lg font-extrabold text-gray-800">Équipements</h2>
+            </div>
+            <div class="space-y-4">
+                <div class="glass-card rounded-2xl p-4 shadow-sm border-l-4 border-amber-400 text-sm">
+                    <h3 class="font-bold text-gray-800 mb-2">Réduire ma facture électrique</h3>
+                    <p class="text-gray-600 leading-relaxed">
+                        Lavez à <strong>30°C</strong> au lieu de 60°C, utilisez des ampoules <strong>LED</strong> et éteignez systématiquement les lumières.
+                    </p>
                 </div>
-                <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl rounded-bl-none p-3 max-w-[85%]">
-                    <p class="text-sm text-gray-700">Bonjour ! Je suis Watty 👋 Sélectionnez une question ci-dessous et je vous donnerai des conseils pratiques !</p>
+                <div class="glass-card rounded-2xl p-4 shadow-sm border-l-4 border-indigo-400 text-sm">
+                    <h3 class="font-bold text-gray-800 mb-2">Chasse aux veilles</h3>
+                    <p class="text-gray-600 leading-relaxed">
+                        Utilisez des <strong>multiprises à interrupteur</strong>. Éteindre box et consoles peut économiser jusqu'à <strong>100€/an</strong>.
+                    </p>
+                </div>
+                <div class="glass-card rounded-2xl p-4 shadow-sm border-l-4 border-blue-400 text-sm">
+                    <h3 class="font-bold text-gray-800 mb-2">Le froid optimal</h3>
+                    <p class="text-gray-600 leading-relaxed">
+                        Frigo à <strong>+4°C</strong> et congélateur à <strong>-18°C</strong>. Dégivrez régulièrement (3mm de givre = +30% de conso).
+                    </p>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <!-- Question Select -->
-        <div class="p-4 bg-gray-50/80 border-t border-gray-100">
-            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Choisissez une question :</label>
-            <div class="relative">
-                <select id="questionSelect" class="w-full bg-indigo-50 border-2 border-indigo-200 text-indigo-700 font-semibold text-sm rounded-xl py-3 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer" onchange="handleQuestion()">
-                    <option value="">-- Sélectionnez une question --</option>
-                    <optgroup label="💡 Économies & Équipements">
-                        <option value="q1">Gestes simples pour réduire ma facture ?</option>
-                        <option value="q5">Appareils qui consomment le plus en veille ?</option>
-                        <option value="q8">Température idéale frigo/congélo ?</option>
-                        <option value="q11">Les ampoules LED font-elles une vraie différence ?</option>
-                    </optgroup>
-                    <optgroup label="🌡️ Chauffage & Isolation">
-                        <option value="q2">Comment contrôler la température de mon logement ?</option>
-                        <option value="q3">Comment limiter les pertes de chaleur ?</option>
-                    </optgroup>
-                    <optgroup label="🏡 DPE">
-                        <option value="q4">Pourquoi un bon DPE est-il important ?</option>
-                    </optgroup>
-                    <optgroup label="💻 Numérique & Impact">
-                        <option value="q9">Impact écologique du streaming et des e-mails ?</option>
-                    </optgroup>
-                    <optgroup label="🌍 Climat & Énergie">
-                        <option value="q6">L'énergie nucléaire est-elle verte ?</option>
-                        <option value="q7">Comment calculer mon empreinte carbone ?</option>
-                        <option value="q10">kWh français vs allemand en CO₂ ?</option>
-                        <option value="q12">Différence empreinte carbone / gaz à effet de serre ?</option>
-                        <option value="q13">Pourquoi des événements météo extrêmes ?</option>
-                    </optgroup>
-                </select>
-                <span class="material-icons absolute right-3 top-1/2 -translate-y-1/2 text-indigo-500 pointer-events-none">expand_more</span>
+        <!-- SECTION: CHAUFFAGE -->
+        <section id="chauffage" class="animate-fade-up">
+            <div class="flex items-center gap-2 mb-4">
+                <span class="material-icons text-indigo-500">thermostat</span>
+                <h2 class="text-lg font-extrabold text-gray-800">Chauffage</h2>
             </div>
-        </div>
+            <div class="glass-card rounded-2xl p-5 shadow-sm space-y-4">
+                <div class="flex items-start gap-3">
+                    <span class="material-icons text-indigo-500 text-sm mt-0.5">adjust</span>
+                    <p class="text-sm text-gray-600"><strong>19°C</strong> dans les pièces de vie, <strong>17°C</strong> dans les chambres.</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <span class="material-icons text-indigo-500 text-sm mt-0.5">adjust</span>
+                    <p class="text-sm text-gray-600">Fermez les volets la nuit pour garder <strong>60%</strong> de la chaleur par les fenêtres.</p>
+                </div>
+                <div class="flex items-start gap-3">
+                    <span class="material-icons text-indigo-500 text-sm mt-0.5">adjust</span>
+                    <p class="text-sm text-gray-600">Dégagez vos radiateurs et aérez 10 min par jour.</p>
+                </div>
+            </div>
+        </section>
 
-        <!-- CTA -->
-        <div class="p-4 bg-gradient-to-r from-indigo-600 to-purple-600">
-            <button onclick="window.location.href='estimation-mobile.html'"
-                class="w-full bg-white text-indigo-700 font-bold py-3 rounded-xl text-sm active:scale-95 transition-transform">
-                Faire mon estimation DPE
-            </button>
-        </div>
+        <!-- SECTION: DPE -->
+        <section id="dpe" class="animate-fade-up">
+            <div class="flex items-center gap-2 mb-4">
+                <span class="material-icons text-emerald-500">speed</span>
+                <h2 class="text-lg font-extrabold text-gray-800">Pourquoi le DPE ?</h2>
+            </div>
+            <div class="glass-card rounded-2xl p-5 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-sm">
+                <p class="text-sm text-gray-700 leading-relaxed mb-4">
+                    Passer d'une classe G à C peut diviser votre facture par <strong>4</strong> et augmenter la valeur de votre bien de <strong>5 à 10%</strong>.
+                </p>
+                <button onclick="window.location.href='estimation-mobile.html'" class="w-full py-3 bg-emerald-500 text-white font-bold rounded-xl text-xs active:scale-95 transition-transform">
+                    Estimez votre logement
+                </button>
+            </div>
+        </section>
+
+        <!-- SECTION: CLIMAT -->
+        <section id="climat" class="animate-fade-up">
+            <div class="flex items-center gap-2 mb-4">
+                <span class="material-icons text-blue-500">public</span>
+                <h2 class="text-lg font-extrabold text-gray-800">Climat</h2>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="glass-card rounded-2xl p-4 shadow-sm text-center">
+                    <h3 class="text-xs font-bold text-gray-800 mb-1">Nucléaire</h3>
+                    <p class="text-[10px] text-gray-500">Énergie bas carbone indispensable.</p>
+                </div>
+                <div class="glass-card rounded-2xl p-4 shadow-sm text-center">
+                    <h3 class="text-xs font-bold text-gray-800 mb-1">Impact</h3>
+                    <p class="text-[10px] text-gray-500">9,9 t de CO₂/an par Français.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: NUMÉRIQUE -->
+        <section id="numerique" class="animate-fade-up">
+            <div class="flex items-center gap-2 mb-4">
+                <span class="material-icons text-purple-500">computer</span>
+                <h2 class="text-lg font-extrabold text-gray-800">Digital</h2>
+            </div>
+            <div class="glass-card rounded-2xl p-5 shadow-sm border-t-4 border-purple-500">
+                <p class="text-xs text-gray-600 italic text-center">
+                    "Garder son smartphone 4 ans au lieu de 2 est 100 fois plus efficace que de vider sa boîte mail !"
+                </p>
+            </div>
+        </section>
+
     </div>
 
     <!-- Ressources officielles -->
@@ -144,55 +183,7 @@
     </nav>
 
     <script>
-        // Copy all answers from the original bons-gestes.html
-        const answers = {
-            q1: `<p><strong>💡 Pour réduire votre facture électrique :</strong></p><ul style="margin-top:8px;padding-left:16px;line-height:1.8"><li>Éteignez les lumières en quittant une pièce</li><li>Utilisez des multiprises avec interrupteur pour les appareils en veille</li><li>Chargez vos appareils de nuit (heures creuses)</li><li>Lavez à 30°C au lieu de 60°C</li><li>Utilisez un thermostat programmable : 1°C en moins = 7% d'économies</li></ul>`,
-            q2: `<p><strong>🌡️ Contrôler la température :</strong></p><ul style="margin-top:8px;padding-left:16px;line-height:1.8"><li>Chauffez à 19°C dans les pièces de vie, 17°C dans les chambres</li><li>Installez un thermostat programmable ou connecté</li><li>Fermez les volets la nuit pour conserver la chaleur</li><li>Aérez 10 min le matin (fenêtres grandes ouvertes)</li><li>Ne couvrez pas les radiateurs avec des meubles</li></ul>`,
-            q3: `<p><strong>🏠 Limiter les pertes de chaleur :</strong></p><ul style="margin-top:8px;padding-left:16px;line-height:1.8"><li>Posez des joints d'étanchéité sur les portes et fenêtres</li><li>Utilisez des rideaux épais en hiver</li><li>Isolez les combles (30% des pertes viennent du toit)</li><li>Vérifiez l'isolation de vos fenêtres (double-vitrage recommandé)</li><li>Évitez les courants d'air sous les portes</li></ul>`,
-            q4: `<p><strong>🏡 Pourquoi le DPE est important :</strong></p><ul style="margin-top:8px;padding-left:16px;line-height:1.8"><li>Il impacte directement votre facture énergétique</li><li>Il est obligatoire lors d'une vente ou d'une location</li><li>Les logements classés F ou G seront bientôt interdits à la location</li><li>Une meilleure classe = logement plus confortable et facture moins élevée</li><li>Il permet de cibler les rénovations prioritaires</li></ul>`,
-            q5: `<p><strong>⚡ Appareils les plus énergivores en veille :</strong></p><ul style="margin-top:8px;padding-left:16px;line-height:1.8"><li>Box internet : 15-25W en continu (100-175 kWh/an)</li><li>Télévision en veille : 1-5W</li><li>Console de jeux : jusqu'à 150W si allumée inactive</li><li>Chargeurs de téléphone branchés sans appareil : 0,1-0,5W</li><li>Astuce : une multiprise à interrupteur coupe tout d'un geste</li></ul>`,
-            q6: `<p><strong>☢️ L'énergie nucléaire est-elle verte ?</strong></p><p style="margin-top:8px">Le nucléaire émet très peu de CO₂ (4-12 gCO₂/kWh contre 820 pour le charbon). Il est considéré comme "bas carbone" par la Commission Européenne. Cependant, il génère des déchets radioactifs dont la gestion reste un défi sur des milliers d'années. En France, le mix électrique est l'un des moins carbonés au monde grâce au nucléaire (~75% de la production).</p>`,
-            q7: `<p><strong>🌍 Calculer votre empreinte carbone :</strong></p><ul style="margin-top:8px;padding-left:16px;line-height:1.8"><li><strong>Nos 2 Tonnes</strong> (ADEME) : test officiel français très complet</li><li><strong>Carbon Footprint Calculator</strong> (carbonfootprint.com)</li><li>Comptez transport, alimentation, logement et achats</li><li>Moyenne française : 9-10 tonnes CO₂/an (objectif 2050 : 2 tonnes)</li></ul>`,
-            q8: `<p><strong>🧊 Températures idéales :</strong></p><ul style="margin-top:8px;padding-left:16px;line-height:1.8"><li><strong>Réfrigérateur :</strong> 4°C (pas 2°C, pas 7°C)</li><li><strong>Congélateur :</strong> -18°C (chaque degré en moins = +5% de conso)</li><li>Dégivrez régulièrement : 3mm de givre = +30% de consommation</li><li>Éloignez le frigidaire des sources de chaleur (four, soleil direct)</li><li>Laissez refroidir les plats avant de les mettre au fri</li></ul>`,
-            q9: `<p><strong>💻 Impact numérique :</strong></p><ul style="margin-top:8px;padding-left:16px;line-height:1.8"><li>1h de streaming HD = ~36g CO₂ (équivalent 150m en voiture)</li><li>1 e-mail avec pièce jointe lourde = 50g CO₂</li><li>1 requête Google = 0,2g CO₂</li><li>Une vidéoconférence d'1h = 150-1000g CO₂ selon la qualité</li><li>Conseil : coupez la caméra en réunion virtuelle quand ce n'est pas nécessaire</li></ul>`,
-            q10: `<p><strong>🌍 Émissions par kWh :</strong></p><ul style="margin-top:8px;padding-left:16px;line-height:1.8"><li><strong>France :</strong> ~60 gCO₂/kWh (grâce au nucléaire)</li><li><strong>Allemagne :</strong> ~350 gCO₂/kWh (charbon et gaz encore présents)</li><li><strong>Europe moyenne :</strong> ~250 gCO₂/kWh</li><li>C'est pourquoi le chauffage électrique est plutôt bon en France d'un point de vue carbone !</li></ul>`,
-            q11: `<p><strong>💡 Les ampoules LED :</strong></p><ul style="margin-top:8px;padding-left:16px;line-height:1.8"><li>Une LED consomme 5 à 10x moins qu'une ampoule incandescente</li><li>Durée de vie : 15 000h vs 1 000h pour une incandescente</li><li>Économie estimée : 10-15€/an par ampoule remplacée</li><li>Si vous avez 10 ampoules, c'est ~100-150€/an d'économies</li><li>Amortissement du coût d'une LED : souvent moins de 6 mois</li></ul>`,
-            q12: `<p><strong>🌿 Empreinte carbone vs GES :</strong></p><p style="margin-top:8px">Les <strong>gaz à effet de serre (GES)</strong> désignent tous les gaz qui retiennent la chaleur dans l'atmosphère (CO₂, CH₄, N₂O...). L'<strong>empreinte carbone</strong> est une mesure personnelle ou collective qui convertit tous ces gaz en "équivalent CO₂" pour simplifier la comparaison. 1 tonne de méthane (CH₄) correspond à ~25 tonnes équivalent CO₂.</p>`,
-            q13: `<p><strong>🌪️ Réchauffement et événements extrêmes :</strong></p><p style="margin-top:8px">Le réchauffement climatique augmente l'énergie dans l'atmosphère. Cela intensifie le cycle de l'eau (plus d'évaporation → orages plus violents), rend les vagues de chaleur plus longues et fréquentes, et perturbe les courants atmosphériques. Les événements qui existaient avant n'ont pas disparu, ils sont juste plus intenses et plus fréquents.</p>`
-        };
-
-        function handleQuestion() {
-            const select = document.getElementById('questionSelect');
-            const val = select.value;
-            if (!val) return;
-
-            const chatMessages = document.getElementById('chatMessages');
-
-            // User bubble
-            const userDiv = document.createElement('div');
-            userDiv.className = 'flex justify-end chat-msg';
-            userDiv.innerHTML = `<div class="bg-indigo-600 text-white rounded-2xl rounded-br-none p-3 max-w-[85%] text-sm">${select.options[select.selectedIndex].text}</div>`;
-            chatMessages.appendChild(userDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-
-            // Typing indicator
-            const typingDiv = document.createElement('div');
-            typingDiv.id = 'typing';
-            typingDiv.className = 'flex items-end gap-2';
-            typingDiv.innerHTML = `<div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0"><img src="Images/Image_6.png" class="w-6 h-6 object-contain"></div><div class="bg-indigo-50 rounded-2xl rounded-bl-none p-3"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>`;
-            chatMessages.appendChild(typingDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-
-            setTimeout(() => {
-                typingDiv.remove();
-                const botDiv = document.createElement('div');
-                botDiv.className = 'flex items-end gap-2 chat-msg';
-                botDiv.innerHTML = `<div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0 self-start mt-1"><img src="Images/Image_6.png" class="w-6 h-6 object-contain"></div><div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl rounded-bl-none p-3 max-w-[85%] text-sm text-gray-700">${answers[val] || "Je n'ai pas de réponse pour cette question."}</div>`;
-                chatMessages.appendChild(botDiv);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-                select.value = '';
-            }, 1000);
-        }
+        // Version mobile statique pour une meilleure performance
     </script>
 </body>
 </html>
