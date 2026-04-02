@@ -653,7 +653,7 @@
                             </div>
                         </div>
 
-                        <div class="grid sm:grid-cols-2 gap-4 mb-6">
+                        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                             <!-- Isolation Murs -->
                             <div>
                                 <label class="block text-xs font-semibold text-gray-600 mb-1">Isolation des murs</label>
@@ -678,32 +678,86 @@
 
                             <!-- Fenêtres -->
                             <div>
-                                <label class="block text-xs font-semibold text-gray-600 mb-1">Qualité des
-                                    fenêtres</label>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Qualité des fenêtres</label>
                                 <select id="simQualiteFenetres"
                                     class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
                                     <option value="Très bonne (triple vitrage)">Très bonne (triple vitrage)</option>
                                     <option value="Bonne (double vitrage récent)">Bonne (double vitrage récent)</option>
-                                    <option value="Moyenne (double vitrage ancien)">Moyenne (double vitrage ancien)
-                                    </option>
+                                    <option value="Moyenne (double vitrage ancien)">Moyenne (double vitrage ancien)</option>
                                     <option value="Insuffisante (simple vitrage)">Insuffisante (simple vitrage)</option>
                                 </select>
                             </div>
 
                             <!-- Chauffage -->
                             <div>
-                                <label class="block text-xs font-semibold text-gray-600 mb-1">Émetteur de
-                                    chauffage</label>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Émetteur de chauffage</label>
                                 <select id="simChauffage"
                                     class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
                                     <option value="Radiateur électrique">Radiateur électrique</option>
                                     <option value="Convecteur électrique">Convecteur électrique</option>
-                                    <option value="Radiateur à eau (chauffage central)">Radiateur à eau (chauffage
-                                        central)</option>
+                                    <option value="Radiateur à eau (chauffage central)">Radiateur à eau (chauffage central)</option>
                                     <option value="Plancher chauffant">Plancher chauffant</option>
                                     <option value="Poêle (bois/fioul)">Poêle (bois/fioul)</option>
-                                    <option value="Soufflage air chaud / Climatisation">Soufflage air chaud /
-                                        Climatisation</option>
+                                    <option value="Soufflage air chaud / Climatisation">Soufflage air chaud / Climatisation</option>
+                                </select>
+                            </div>
+
+                             <!-- Isolation Plancher -->
+                             <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Isolation du plancher</label>
+                                <select id="simPlancher"
+                                    class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    <option value="Très bonne">Très bonne</option>
+                                    <option value="Bonne">Bonne</option>
+                                    <option value="Moyenne">Moyenne</option>
+                                    <option value="Insuffisante">Insuffisante</option>
+                                </select>
+                            </div>
+
+                            <!-- Chauffe-eau -->
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Type de chauffe-eau</label>
+                                <select id="simECS"
+                                    class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    <option value="Ballon électrique">Ballon électrique</option>
+                                    <option value="Chauffe-eau thermodynamique">Chauffe-eau thermodynamique</option>
+                                    <option value="Chauffe-eau gaz">Chauffe-eau gaz</option>
+                                    <option value="Chaudière gaz">Chaudière gaz</option>
+                                    <option value="Chaudière fioul">Chaudière fioul</option>
+                                    <option value="Pompe à chaleur">Pompe à chaleur</option>
+                                    <option value="Réseau de chaleur">Réseau de chaleur</option>
+                                </select>
+                            </div>
+
+                            <!-- Protection Solaire -->
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Protection solaire</label>
+                                <select id="simSoleil"
+                                    class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    <option value="Oui">Oui</option>
+                                    <option value="Non">Non</option>
+                                </select>
+                            </div>
+
+                            <!-- Brasseur d'air -->
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Ventilateur de plafond</label>
+                                <select id="simBrasseur"
+                                    class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    <option value="Oui">Oui</option>
+                                    <option value="Non">Non</option>
+                                </select>
+                            </div>
+
+                            <!-- Isolation Globale -->
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Isolation globale</label>
+                                <select id="simEnveloppe"
+                                    class="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    <option value="Très bonne">Très bonne</option>
+                                    <option value="Bonne">Bonne</option>
+                                    <option value="Moyenne">Moyenne</option>
+                                    <option value="Insuffisante">Insuffisante</option>
                                 </select>
                             </div>
                         </div>
@@ -1368,6 +1422,11 @@
             setSelectValue('simIsolationToiture', getVal('Isolation de la toiture'));
             setSelectValue('simQualiteFenetres', getVal('Qualité des fenêtres'));
             setSelectValue('simChauffage', getVal('Émetteur de chauffage'));
+            setSelectValue('simPlancher', getVal('Isolation du plancher'));
+            setSelectValue('simECS', getVal('Type de chauffe-eau'));
+            setSelectValue('simSoleil', getVal('Protection solaire'));
+            setSelectValue('simBrasseur', getVal('Ventilateur de plafond'));
+            setSelectValue('simEnveloppe', getVal('Qualité isolation globale'));
         }
 
         async function runSimulation(event) {
@@ -1393,6 +1452,11 @@
             updateResponse('Isolation de la toiture', 'simIsolationToiture');
             updateResponse('Qualité des fenêtres', 'simQualiteFenetres');
             updateResponse('Émetteur de chauffage', 'simChauffage');
+            updateResponse('Isolation du plancher', 'simPlancher');
+            updateResponse('Type de chauffe-eau', 'simECS');
+            updateResponse('Protection solaire', 'simSoleil');
+            updateResponse('Ventilateur de plafond', 'simBrasseur');
+            updateResponse('Qualité isolation globale', 'simEnveloppe');
 
             // event.currentTarget est null pour les handlers inline, on utilise event.target
             const btn = (event && (event.currentTarget || event.target)) || document.querySelector('[onclick*="runSimulation"]');
