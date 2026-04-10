@@ -107,23 +107,36 @@ const DEPT_TO_ZONE_CLIMATIQUE = {
     '971': 'H3', '972': 'H3', '973': 'H3', '974': 'H3', '976': 'H3',
 };
 
-const SURFACE_TO_KEY = {
-    'Moins de 30m²': 'inf30m2',
-    '30-50m²': '30-50m2',
-    '50-70m²': '50-70m2',
-    '70-90m²': '70-90m2',
-    '90-120m²': '90-120m2',
-    'Plus de 120m²': 'sup120m2'
-};
+function getSurfaceKey(surface) {
+    if (typeof surface === 'string') {
+        const SURFACE_TO_KEY = {
+            'Moins de 30m²': 'inf30m2', '30-50m²': '30-50m2', '50-70m²': '50-70m2',
+            '70-90m²': '70-90m2', '90-120m²': '90-120m2', 'Plus de 120m²': 'sup120m2'
+        };
+        if (SURFACE_TO_KEY[surface]) return SURFACE_TO_KEY[surface];
+        surface = parseFloat(surface);
+    }
+    if (isNaN(surface)) return '70-90m2';
 
-const SURFACE_TO_VALUE = {
-    'Moins de 30m²': 20.0,
-    '30-50m²': 40.0,
-    '50-70m²': 60.0,
-    '70-90m²': 80.0,
-    '90-120m²': 105.0,
-    'Plus de 120m²': 140.0
-};
+    if (surface < 30) return 'inf30m2';
+    if (surface <= 50) return '30-50m2';
+    if (surface <= 70) return '50-70m2';
+    if (surface <= 90) return '70-90m2';
+    if (surface <= 120) return '90-120m2';
+    return 'sup120m2';
+}
+
+function getSurfaceValue(surface) {
+    if (typeof surface === 'string') {
+        const SURFACE_TO_VALUE = {
+            'Moins de 30m²': 20.0, '30-50m²': 40.0, '50-70m²': 60.0,
+            '70-90m²': 80.0, '90-120m²': 105.0, 'Plus de 120m²': 140.0
+        };
+        if (SURFACE_TO_VALUE[surface]) return SURFACE_TO_VALUE[surface];
+    }
+    const val = parseFloat(surface);
+    return isNaN(val) ? 70.0 : val;
+}
 
 const PERIODE_TO_ANNEE = {
     'Avant 1948': 1930.0,
@@ -259,7 +272,7 @@ function mapResponsesToFeatures(responses, deptCode) {
         'protection_solaire_exterieure': protSolVal === 'Oui' ? 1.0 : 0.0,
 
         // === NUMÉRIQUES ===
-        'surface_habitable_logement': SURFACE_TO_VALUE[surfaceVal] || 70.0,
+        'surface_habitable_logement': getSurfaceValue(surfaceVal),
         'annee_construction': PERIODE_TO_ANNEE[periodeVal] || 1990.0,
         'hauteur_sous_plafond': HAUTEUR_SOUS_PLAFOND_MAP[hauteurVal] || 2.5,
 
@@ -270,13 +283,13 @@ function mapResponsesToFeatures(responses, deptCode) {
         // besoin_chauffage (kWh/an) estimé à partir de ubat, surface, zone climatique
         'besoin_chauffage': _estimateBesoinChauffage(
             _estimateUbat(isolEnveloppeVal, periodeVal),
-            SURFACE_TO_VALUE[surfaceVal] || 70.0,
+            getSurfaceValue(surfaceVal),
             zoneClim,
             HAUTEUR_SOUS_PLAFOND_MAP[hauteurVal] || 2.5
         ),
         // apport_solaire (Wh) estimé à partir de la surface et zone climatique
         'apport_solaire_saison_chauffe': _estimateApportSolaire(
-            SURFACE_TO_VALUE[surfaceVal] || 70.0,
+            getSurfaceValue(surfaceVal),
             zoneClim
         ),
     };
@@ -452,7 +465,7 @@ class XGBoostPredictor {
                 if (val === cat) {
                     oheVec.push(1.0);
                 } else {
-                    oheVec.push(NaN); // NaN = missing pour XGBoost JS
+                    oheVec.push(NaN); // NaN is treated as missing by XGBoost, matching sparse training zeros
                 }
             });
         });
@@ -550,7 +563,7 @@ async function predictClientSide(responsesArray) {
     const deptCode = match ? match[1] : '75';
 
     const region = DEPT_TO_REGION[deptCode];
-    const surfaceKey = SURFACE_TO_KEY[surfaceValue];
+    const surfaceKey = getSurfaceKey(surfaceValue);
 
     if (!region) throw new Error(`Région non supportée pour le département: ${deptValue}`);
     if (!surfaceKey) throw new Error(`Catégorie de surface non reconnue: ${surfaceValue}`);
@@ -596,24 +609,39 @@ async function predictClientSide(responsesArray) {
 
     console.log(`[XGBoost] Prédiction Théorique (C_base): ${predictionTheoretical.toFixed(1)} kWh/an`);
 
-    // 6) Consommation Réelle
-    // Récupération des valeurs du questionnaire (avec des valeurs par défaut si non renseigné)
-    const tempValue = parseFloat(responses['Température de chauffe']) || 19;
-    const occValue = parseFloat(responses['Nombre d\'occupants']) || 2;
-    const presValue = parseFloat(responses['Présence par jour']) || 14;
+    // 6) Consommation Réelle (C_sim_bruit)
+    // Extraction sécurisée des paramètres comportementaux (depuis le tableau de réponses)
+    const getVal = (label, def) => {
+        const r = responsesArray.find(resp => resp.label === label);
+        if (r && r.value !== undefined) {
+            const parsed = parseFloat(r.value);
+            return isNaN(parsed) ? def : parsed;
+        }
+        return def;
+    };
+
+    const tempValue = getVal('Température de chauffe', 19);
+    const nb_occ    = getVal('Nombre d\'occupants', 2);
+    const presHours = getVal('Présence par jour', 14);
+
+    // Paramètres de Calibration (C_sim_bruit)
+    const CALIB_DELTA    = 0.02; // Sensibilité température
+    const CALIB_OCC      = 250;  // kWh/an par occupant additionnel
+    const CALIB_PRESENCE = 0.95; // Facteur d'exposant présence
+    const BRUIT_RESIDUEL = 1.00; // Bruit déterministe (moyen)
 
     const delta_temp = tempValue - 19;
-    const presence = presValue / 24.0; // Taux entre 0 et 1
+    const presence = presHours / 24.0; 
 
-    // Formule :
-    // (0.6 * C_base * (1 + 0.02 * delta_temp) + 0.2 * C_base + 250 * nb_occ) * presence**0.95
+    // Application stricte de la formule :
+    // C_sim = ((0.6 * C_base * (1 + calib_delta*delta_temp) + 0.2 * C_base + calib_occ*nb_occ) * presence**calib_pres) * bruit
     const predictionReal = (
-        (0.6 * predictionTheoretical * (1 + 0.02 * delta_temp))
+        (0.6 * predictionTheoretical * (1 + CALIB_DELTA * delta_temp))
         + (0.2 * predictionTheoretical)
-        + (250 * occValue)
-    ) * Math.pow(presence, 0.95);
+        + (CALIB_OCC * nb_occ)
+    ) * Math.pow(presence, CALIB_PRESENCE) * BRUIT_RESIDUEL;
 
-    console.log(`[XGBoost] Prédiction Réelle: ${predictionReal.toFixed(1)} kWh/an (Temp: ${tempValue}°, Occ: ${occValue}, Pres: ${presValue}h)`);
+    console.log(`[XGBoost] Ajustement Réel : C_base=${predictionTheoretical.toFixed(0)}, DeltaT=${delta_temp}°, Occ=${nb_occ}, Pres=${presHours}h => C_réel=${predictionReal.toFixed(0)}`);
 
     // 7) Score de confiance (même calcul que app.py, basé sur la théorie)
     const confidenceScore = Math.min(85, Math.max(40, Math.floor(60 + (predictionTheoretical / 500) * 20)));

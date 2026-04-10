@@ -412,16 +412,18 @@
                 const consoRealEP = Number(result.predictionReal) || totalConsoEF;
                 const consoRealEF = consoRealEP / 2.3;
                 
-                document.getElementById('consoTheo').textContent = Math.round(totalConsoEF).toLocaleString('fr-FR');
+                const formatNum = (v) => (!isNaN(v) && v > 0) ? Math.round(v).toLocaleString('fr-FR') : "--";
+
+                document.getElementById('consoTheo').textContent = formatNum(totalConsoEF);
                 document.getElementById('consoTheo').className = "text-lg font-black text-indigo-600"; // Sécurité
-                document.getElementById('consoTheoInterval').textContent = formatInterval(totalConsoEF);
+                document.getElementById('consoTheoInterval').textContent = (!isNaN(totalConsoEF) && totalConsoEF > 0) ? formatInterval(totalConsoEF) : "";
                 
-                document.getElementById('consoReal').textContent = Math.round(consoRealEF).toLocaleString('fr-FR');
-                document.getElementById('consoRealInterval').textContent = formatInterval(consoRealEF);
+                document.getElementById('consoReal').textContent = formatNum(consoRealEF);
+                document.getElementById('consoRealInterval').textContent = (!isNaN(consoRealEF) && consoRealEF > 0) ? formatInterval(consoRealEF) : "";
                 
                 const cost = consoRealEF * 0.2516;
-                document.getElementById('costReal').textContent = Math.round(cost).toLocaleString('fr-FR') + ' €';
-                document.getElementById('costRealInterval').textContent = formatInterval(cost, true);
+                document.getElementById('costReal').textContent = formatNum(cost) + ' €';
+                document.getElementById('costRealInterval').textContent = (!isNaN(cost) && cost > 0) ? formatInterval(cost, true) : "";
 
                 // CO2
                 document.getElementById('co2Value').textContent = Math.round(kwhEP_m2 * 0.15);

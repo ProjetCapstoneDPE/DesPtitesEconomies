@@ -1251,8 +1251,8 @@
                     const ecsResp = responses.find(r => r.label.includes('eau') || r.label.includes('Générateur'));
                     const heatResp = responses.find(r => r.label.includes('chauffage') || r.label.includes('Émetteur'));
 
-                    const isFossil = (ecsResp && fossilKeywords.some(k => ecsResp.value.toLowerCase().includes(k))) ||
-                        (heatResp && fossilKeywords.some(k => heatResp.value.toLowerCase().includes(k)));
+                    const isFossil = (ecsResp && ecsResp.value && typeof ecsResp.value === 'string' && fossilKeywords.some(k => ecsResp.value.toLowerCase().includes(k))) ||
+                        (heatResp && heatResp.value && typeof heatResp.value === 'string' && fossilKeywords.some(k => heatResp.value.toLowerCase().includes(k)));
 
                     if (isFossil) {
                         convFactor = 1.0;
@@ -1346,7 +1346,7 @@
                         console.log('[Re-prédiction] Features améliorées:', improvedFeatures);
 
                         // 4) Re-prédire avec le modèle XGBoost
-                        let newPrediction = totalConsoEF * 0.7; // fallback
+                        let newPrediction = consoTheoEP * 0.7; // fallback
                         try {
                             const modelUrl = `models_json/${result.model_used}.json`;
                             const predictor = new XGBoostPredictor();
@@ -1376,14 +1376,14 @@
                         }, 500);
 
                         // Savings amount (basé sur la vraie différence)
-                        const savedEP = totalConsoEF - newPrediction;
+                        const savedEP = consoTheoEP - newPrediction;
                         const savedEF = savedEP / 2.3; // Conversion en énergie finale
                         const savedEuros = Math.max(0, savedEF) * 0.2516;
                         document.getElementById('savingsAmount').textContent = `${Math.round(savedEuros)} € par an`;
                         document.getElementById('savingsInterval').textContent = formatInterval(savedEuros, true);
 
                         // 6) Recommandations dynamiques basées sur les points critiques
-                        renderRecommendations(criticalPoints, totalConsoEF, newPrediction);
+                        renderRecommendations(criticalPoints, consoTheoEP, newPrediction);
 
                     } else {
                         // Pas de points critiques trouvés (rare)
