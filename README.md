@@ -159,7 +159,7 @@ Le site **[desptiteseconomies.fr](https://desptiteseconomies.fr)** permet aux ut
 ### Architecture technique
 Les modèles XGBoost sont convertis en JSON et interprétés côté client via `xgboost-predict.js`, permettant une prédiction **sans serveur back-end**.
 
-## ⚙️ Installation
+## Installation
 
 ### Prérequis
 - Python 3.12+
