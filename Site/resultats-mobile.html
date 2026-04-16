@@ -409,14 +409,34 @@
                 renderScale(kwhEP_m2);
 
                 // Conso & cost
-                const consoRealEP = Number(result.predictionReal) || totalConsoEF;
-                const consoRealEF = consoRealEP / 2.3;
+                let convFactor = 2.3;
+                let energyPrice = 0.2516;
+                if (responses.length > 0) {
+                    const fossilKeywords = ['gaz', 'fioul', 'bois', 'charbon', 'poêle'];
+                    const ecsResp = responses.find(r => r.label.includes('eau') || r.label.includes('Générateur'));
+                    const heatResp = responses.find(r => r.label.includes('chauffage') || r.label.includes('Émetteur'));
+                    const isFossil = (ecsResp && ecsResp.value && fossilKeywords.some(k => ecsResp.value.toLowerCase().includes(k))) ||
+                        (heatResp && heatResp.value && fossilKeywords.some(k => heatResp.value.toLowerCase().includes(k)));
+                    if (isFossil) { convFactor = 1.0; energyPrice = 0.12; }
+                }
+
+                let consoRealEF;
+                let consoTheoEF;
+
+                if (result.predictionElec !== undefined) {
+                    consoRealEF = Number(result.predictionReal);
+                    consoTheoEF = Number(result.predictionElec);
+                } else {
+                    const consoRealEP = Number(result.predictionReal) || totalConsoEF;
+                    consoRealEF = consoRealEP / convFactor;
+                    consoTheoEF = totalConsoEF / convFactor;
+                }
                 
                 const formatNum = (v) => (!isNaN(v) && v > 0) ? Math.round(v).toLocaleString('fr-FR') : "--";
 
-                document.getElementById('consoTheo').textContent = formatNum(totalConsoEF);
+                document.getElementById('consoTheo').textContent = formatNum(consoTheoEF);
                 document.getElementById('consoTheo').className = "text-lg font-black text-indigo-600"; // Sécurité
-                document.getElementById('consoTheoInterval').textContent = (!isNaN(totalConsoEF) && totalConsoEF > 0) ? formatInterval(totalConsoEF) : "";
+                document.getElementById('consoTheoInterval').textContent = (!isNaN(consoTheoEF) && consoTheoEF > 0) ? formatInterval(consoTheoEF) : "";
                 
                 document.getElementById('consoReal').textContent = formatNum(consoRealEF);
                 document.getElementById('consoRealInterval').textContent = (!isNaN(consoRealEF) && consoRealEF > 0) ? formatInterval(consoRealEF) : "";
@@ -471,11 +491,18 @@
                         const improvedFeatures = buildImprovedFeatures(result.features_used, criticalPoints, targetGrade);
                         let newPrediction = totalConsoEF * 0.7;
                         try {
-                            const modelUrl = `models_json/${result.model_used}.json`;
+                            const modelUrl = `models_json/${result.model_used}_dpe.json`;
                             const predictor = new XGBoostPredictor();
                             await predictor.loadModel(modelUrl);
                             newPrediction = predictor.predict(improvedFeatures);
-                        } catch(e) { console.warn('[Re-prédiction] Fallback:', e.message); }
+                        } catch(e) { 
+                            try {
+                                const fallbackUrl = `models_json/${result.model_used}.json`;
+                                const predictorFb = new XGBoostPredictor();
+                                await predictorFb.loadModel(fallbackUrl);
+                                newPrediction = predictorFb.predict(improvedFeatures);
+                            } catch(err) { console.warn('[Re-prédiction] Fallback échoué:', err.message); }
+                        }
 
                         const newKwhM2 = newPrediction / surfaceUsed;
                         const potGrade = getDpeGrade(newKwhM2);
@@ -555,7 +582,7 @@
 
             try {
                 const result = await predictClientSide(currentResponses);
-                localStorage.setItem('dpe_result', JSON.stringify({ prediction:result.prediction, predictionReal:result.predictionReal, confidence_score:result.confidence_score, features_used:result.features_used, model_used:result.model_used, region:result.region }));
+                localStorage.setItem('dpe_result', JSON.stringify({ prediction:result.prediction, predictionElec:result.predictionElec, predictionReal:result.predictionReal, confidence_score:result.confidence_score, features_used:result.features_used, model_used:result.model_used, region:result.region }));
                 localStorage.setItem('dpe_responses', JSON.stringify(currentResponses));
                 window.scrollTo({top:0,behavior:'smooth'});
                 await updateResults();

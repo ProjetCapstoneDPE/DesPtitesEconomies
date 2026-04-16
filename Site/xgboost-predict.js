@@ -572,45 +572,61 @@ async function predictClientSide(responsesArray) {
     const features = mapResponsesToFeatures(responses, deptCode);
     console.log('[XGBoost] Features:', features);
 
-    // 4) Charger le bon modèle JSON
-    const modelUrl = `models_json/${region}/pipeline_${region}_${surfaceKey}.json`;
-    console.log(`[XGBoost] Chargement du modèle: ${modelUrl}`);
+    // 4) Charger les bons modèles JSON
+    const modelDpeUrl = `models_json/${region}/pipeline_${region}_${surfaceKey}_dpe.json`;
+    const modelElecUrl = `models_json/${region}/pipeline_${region}_${surfaceKey}_elec.json`;
+    console.log(`[XGBoost] Chargement des modèles: ${modelDpeUrl} et ${modelElecUrl}`);
 
-    const predictor = new XGBoostPredictor();
+    const predictorDpe = new XGBoostPredictor();
+    const predictorElec = new XGBoostPredictor();
+
     try {
-        await predictor.loadModel(modelUrl);
+        await predictorDpe.loadModel(modelDpeUrl);
     } catch (e) {
-        // Fallback: essayer le modèle général de la région
-        const fallbackUrl = `models_json/${region}/pipeline_${region}.json`;
-        console.warn(`[XGBoost] Modèle spécifique introuvable, essai du fallback: ${fallbackUrl}`);
-        await predictor.loadModel(fallbackUrl);
+        const fallbackDpeUrl = `models_json/${region}/pipeline_${region}_dpe.json`;
+        console.warn(`[XGBoost] Modèle DPE spécifique introuvable, essai du fallback: ${fallbackDpeUrl}`);
+        await predictorDpe.loadModel(fallbackDpeUrl);
     }
 
-    // 5) Prédiction Théorique (C_base)
-    let predictionTheoretical = predictor.predict(features);
+    try {
+        await predictorElec.loadModel(modelElecUrl);
+    } catch (e) {
+        const fallbackElecUrl = `models_json/${region}/pipeline_${region}_elec.json`;
+        console.warn(`[XGBoost] Modèle Elec spécifique introuvable, essai du fallback: ${fallbackElecUrl}`);
+        await predictorElec.loadModel(fallbackElecUrl);
+    }
+
+    // 5) Prédiction Théorique DPE (C_base)
+    let predictionTheoretical = predictorDpe.predict(features);
+
+    // 5 bis) Prédiction Théorique Elec
+    let predictionTheoreticalElec = predictorElec.predict(features);
     
     // --- SÉCURITÉ : BORNES SUR LA CONSOMMATION THÉORIQUE ---
-    // Les arbres XGBoost peuvent parfois prédire des valeurs négatives (ramenées à 0) 
-    // ou extrêmement élevées pour des combinaisons atypiques de réponses.
-    // On borne donc le résultat avec un min/max réaliste en Énergie Primaire.
     const surfaceValForBounds = features.surface_habitable_logement || 70.0;
-    // Minimum : ~40 kWh EP/m²/an (Équivalent à un DPE A très performant)
     const minConso = surfaceValForBounds * 40; 
-    // Maximum : ~1200 kWh EP/m²/an (Équivalent à une "passoire thermique" extrême)
     const maxConso = surfaceValForBounds * 1200;
     
     if (predictionTheoretical < minConso) {
-        console.warn(`[XGBoost] Prédiction très basse (${predictionTheoretical}). Recadrage au min (${minConso}).`);
+        console.warn(`[XGBoost] Prédiction DPE très basse (${predictionTheoretical}). Recadrage au min (${minConso}).`);
         predictionTheoretical = minConso;
     } else if (predictionTheoretical > maxConso) {
-        console.warn(`[XGBoost] Prédiction très élevée (${predictionTheoretical}). Recadrage au max (${maxConso}).`);
+        console.warn(`[XGBoost] Prédiction DPE très élevée (${predictionTheoretical}). Recadrage au max (${maxConso}).`);
         predictionTheoretical = maxConso;
     }
 
-    console.log(`[XGBoost] Prédiction Théorique (C_base): ${predictionTheoretical.toFixed(1)} kWh/an`);
+    if (predictionTheoreticalElec < minConso) {
+        console.warn(`[XGBoost] Prédiction Elec très basse (${predictionTheoreticalElec}). Recadrage au min (${minConso}).`);
+        predictionTheoreticalElec = minConso;
+    } else if (predictionTheoreticalElec > maxConso) {
+        console.warn(`[XGBoost] Prédiction Elec très élevée (${predictionTheoreticalElec}). Recadrage au max (${maxConso}).`);
+        predictionTheoreticalElec = maxConso;
+    }
+
+    console.log(`[XGBoost] Prédiction Théorique DPE: ${predictionTheoretical.toFixed(1)} kWh/an`);
+    console.log(`[XGBoost] Prédiction Théorique Elec: ${predictionTheoreticalElec.toFixed(1)} kWh/an`);
 
     // 6) Consommation Réelle (C_sim_bruit)
-    // Extraction sécurisée des paramètres comportementaux (depuis le tableau de réponses)
     const getVal = (label, def) => {
         const r = responsesArray.find(resp => resp.label === label);
         if (r && r.value !== undefined) {
@@ -624,7 +640,6 @@ async function predictClientSide(responsesArray) {
     const nb_occ    = getVal('Nombre d\'occupants', 2);
     const presHours = getVal('Présence par jour', 14);
 
-    // Paramètres de Calibration (C_sim_bruit)
     const CALIB_DELTA    = 0.02; // Sensibilité température
     const CALIB_OCC      = 250;  // kWh/an par occupant additionnel
     const CALIB_PRESENCE = 0.95; // Facteur d'exposant présence
@@ -633,22 +648,22 @@ async function predictClientSide(responsesArray) {
     const delta_temp = tempValue - 19;
     const presence = presHours / 24.0; 
 
-    // Application stricte de la formule :
-    // C_sim = ((0.6 * C_base * (1 + calib_delta*delta_temp) + 0.2 * C_base + calib_occ*nb_occ) * presence**calib_pres) * bruit
+    // Calcul basé sur la prédiction électrique
     const predictionReal = (
-        (0.6 * predictionTheoretical * (1 + CALIB_DELTA * delta_temp))
-        + (0.2 * predictionTheoretical)
+        (0.6 * predictionTheoreticalElec * (1 + CALIB_DELTA * delta_temp))
+        + (0.2 * predictionTheoreticalElec)
         + (CALIB_OCC * nb_occ)
     ) * Math.pow(presence, CALIB_PRESENCE) * BRUIT_RESIDUEL;
 
-    console.log(`[XGBoost] Ajustement Réel : C_base=${predictionTheoretical.toFixed(0)}, DeltaT=${delta_temp}°, Occ=${nb_occ}, Pres=${presHours}h => C_réel=${predictionReal.toFixed(0)}`);
+    console.log(`[XGBoost] Ajustement Réel : C_base_elec=${predictionTheoreticalElec.toFixed(0)}, DeltaT=${delta_temp}°, Occ=${nb_occ}, Pres=${presHours}h => C_réel=${predictionReal.toFixed(0)}`);
 
-    // 7) Score de confiance (même calcul que app.py, basé sur la théorie)
+    // 7) Score de confiance
     const confidenceScore = Math.min(85, Math.max(40, Math.floor(60 + (predictionTheoretical / 500) * 20)));
 
     return {
         prediction: predictionTheoretical, // On conserve l'approche DPE normée
-        predictionReal: predictionReal,    // Valeur calculée pour la comparaison comportementale
+        predictionElec: predictionTheoreticalElec,
+        predictionReal: predictionReal,    // Valeur calculée pour la comparaison comportementale (basée sur Elec)
         confidence_score: confidenceScore,
         features_used: features,
         model_used: `${region}/${surfaceKey}`,
