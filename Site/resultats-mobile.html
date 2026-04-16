@@ -491,17 +491,14 @@
                         const improvedFeatures = buildImprovedFeatures(result.features_used, criticalPoints, targetGrade);
                         let newPrediction = totalConsoEF * 0.7;
                         try {
-                            const modelUrl = `models_json/${result.model_used}_dpe.json`;
+                            const [modelRegion, modelSurfKey] = result.model_used.split('/');
+                            const modelFilePrefix = result.model_file_prefix || modelRegion;
+                            const modelUrl = `models_json/${modelRegion}/pipeline_${modelFilePrefix}_${modelSurfKey}_dpe.json`;
                             const predictor = new XGBoostPredictor();
                             await predictor.loadModel(modelUrl);
                             newPrediction = predictor.predict(improvedFeatures);
                         } catch(e) { 
-                            try {
-                                const fallbackUrl = `models_json/${result.model_used}.json`;
-                                const predictorFb = new XGBoostPredictor();
-                                await predictorFb.loadModel(fallbackUrl);
-                                newPrediction = predictorFb.predict(improvedFeatures);
-                            } catch(err) { console.warn('[Re-prédiction] Fallback échoué:', err.message); }
+                            console.warn('[Re-prédiction] Fallback:', e.message);
                         }
 
                         const newKwhM2 = newPrediction / surfaceUsed;
@@ -582,7 +579,7 @@
 
             try {
                 const result = await predictClientSide(currentResponses);
-                localStorage.setItem('dpe_result', JSON.stringify({ prediction:result.prediction, predictionElec:result.predictionElec, predictionReal:result.predictionReal, confidence_score:result.confidence_score, features_used:result.features_used, model_used:result.model_used, region:result.region }));
+                localStorage.setItem('dpe_result', JSON.stringify({ prediction:result.prediction, predictionElec:result.predictionElec, predictionReal:result.predictionReal, confidence_score:result.confidence_score, features_used:result.features_used, model_used:result.model_used, model_file_prefix:result.model_file_prefix, region:result.region }));
                 localStorage.setItem('dpe_responses', JSON.stringify(currentResponses));
                 window.scrollTo({top:0,behavior:'smooth'});
                 await updateResults();

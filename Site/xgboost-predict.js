@@ -33,16 +33,16 @@ const DEPT_TO_REGION = {
     // Corse
     '2A': 'Corse', '2B': 'Corse',
     // Grand Est
-    '08': 'Grand_Est', '10': 'Grand_Est', '51': 'Grand_Est', '52': 'Grand_Est',
-    '54': 'Grand_Est', '55': 'Grand_Est', '57': 'Grand_Est', '67': 'Grand_Est',
-    '68': 'Grand_Est', '88': 'Grand_Est',
+    '08': 'Grand Est', '10': 'Grand Est', '51': 'Grand Est', '52': 'Grand Est',
+    '54': 'Grand Est', '55': 'Grand Est', '57': 'Grand Est', '67': 'Grand Est',
+    '68': 'Grand Est', '88': 'Grand Est',
     // Hauts-de-France
-    '02': 'Hauts_de_France', '59': 'Hauts_de_France', '60': 'Hauts_de_France',
-    '62': 'Hauts_de_France', '80': 'Hauts_de_France',
+    '02': 'Hauts-de-France', '59': 'Hauts-de-France', '60': 'Hauts-de-France',
+    '62': 'Hauts-de-France', '80': 'Hauts-de-France',
     // Île-de-France
-    '75': 'Ile_de_France', '77': 'Ile_de_France', '78': 'Ile_de_France',
-    '91': 'Ile_de_France', '92': 'Ile_de_France', '93': 'Ile_de_France',
-    '94': 'Ile_de_France', '95': 'Ile_de_France',
+    '75': 'Ile-de-France', '77': 'Ile-de-France', '78': 'Ile-de-France',
+    '91': 'Ile-de-France', '92': 'Ile-de-France', '93': 'Ile-de-France',
+    '94': 'Ile-de-France', '95': 'Ile-de-France',
     // Normandie
     '14': 'Normandie', '27': 'Normandie', '50': 'Normandie',
     '61': 'Normandie', '76': 'Normandie',
@@ -57,8 +57,8 @@ const DEPT_TO_REGION = {
     '48': 'Occitanie', '65': 'Occitanie', '66': 'Occitanie', '81': 'Occitanie',
     '82': 'Occitanie',
     // Pays de la Loire
-    '44': 'Pays_de_la_Loire', '49': 'Pays_de_la_Loire', '53': 'Pays_de_la_Loire',
-    '72': 'Pays_de_la_Loire', '85': 'Pays_de_la_Loire',
+    '44': 'Pays de la Loire', '49': 'Pays de la Loire', '53': 'Pays de la Loire',
+    '72': 'Pays de la Loire', '85': 'Pays de la Loire',
     // Provence-Alpes-Côte d'Azur
     '04': "Provence-Alpes-Côte_d'Azur", '05': "Provence-Alpes-Côte_d'Azur",
     '06': "Provence-Alpes-Côte_d'Azur", '13': "Provence-Alpes-Côte_d'Azur",
@@ -66,6 +66,25 @@ const DEPT_TO_REGION = {
     // Outre-Mer
     '971': 'Outre-Mer', '972': 'Outre-Mer', '973': 'Outre-Mer',
     '974': 'Outre-Mer', '976': 'Outre-Mer'
+};
+
+// Mapping dossier → préfixe exact des fichiers de modèles
+// (les noms de fichiers peuvent différer des noms de dossiers)
+const REGION_TO_FILE_PREFIX = {
+    'Auvergne-Rhône-Alpes':       'Auvergne-Rhône-Alpes',
+    'Bourgogne-Franche-Comté':    'Bourgogne_Franche_Comte',
+    'Bretagne':                   'Bretagne',
+    'Centre-Val de Loire':        'Centre-Val de Loire',
+    'Corse':                      'Corse',
+    'Grand Est':                  'Grand Est',
+    'Hauts-de-France':            'Hauts-de-France',
+    'Ile-de-France':              'Ile-de-France',
+    'Normandie':                  'Normandie',
+    'Nouvelle-Aquitaine':         'Nouvelle-Aquitaine',
+    'Occitanie':                  'Occitanie',
+    'Pays de la Loire':           'Pays_de_la_Loire',
+    "Provence-Alpes-Côte_d'Azur": "Provence-Alpes-Côte_d'Azur",
+    'Outre-Mer':                  'Outre-Mer'
 };
 
 const DEPT_TO_ZONE_CLIMATIQUE = {
@@ -573,8 +592,10 @@ async function predictClientSide(responsesArray) {
     console.log('[XGBoost] Features:', features);
 
     // 4) Charger les bons modèles JSON
-    const modelDpeUrl = `models_json/${region}/pipeline_${region}_${surfaceKey}_dpe.json`;
-    const modelElecUrl = `models_json/${region}/pipeline_${region}_${surfaceKey}_elec.json`;
+    // Le préfixe des fichiers peut différer du nom de dossier (ex: BFC)
+    const filePrefix = REGION_TO_FILE_PREFIX[region] || region;
+    const modelDpeUrl  = `models_json/${region}/pipeline_${filePrefix}_${surfaceKey}_dpe.json`;
+    const modelElecUrl = `models_json/${region}/pipeline_${filePrefix}_${surfaceKey}_elec.json`;
     console.log(`[XGBoost] Chargement des modèles: ${modelDpeUrl} et ${modelElecUrl}`);
 
     const predictorDpe = new XGBoostPredictor();
@@ -583,7 +604,7 @@ async function predictClientSide(responsesArray) {
     try {
         await predictorDpe.loadModel(modelDpeUrl);
     } catch (e) {
-        const fallbackDpeUrl = `models_json/${region}/pipeline_${region}_dpe.json`;
+        const fallbackDpeUrl = `models_json/${region}/pipeline_${filePrefix}_dpe.json`;
         console.warn(`[XGBoost] Modèle DPE spécifique introuvable, essai du fallback: ${fallbackDpeUrl}`);
         await predictorDpe.loadModel(fallbackDpeUrl);
     }
@@ -591,7 +612,7 @@ async function predictClientSide(responsesArray) {
     try {
         await predictorElec.loadModel(modelElecUrl);
     } catch (e) {
-        const fallbackElecUrl = `models_json/${region}/pipeline_${region}_elec.json`;
+        const fallbackElecUrl = `models_json/${region}/pipeline_${filePrefix}_elec.json`;
         console.warn(`[XGBoost] Modèle Elec spécifique introuvable, essai du fallback: ${fallbackElecUrl}`);
         await predictorElec.loadModel(fallbackElecUrl);
     }
@@ -667,6 +688,7 @@ async function predictClientSide(responsesArray) {
         confidence_score: confidenceScore,
         features_used: features,
         model_used: `${region}/${surfaceKey}`,
+        model_file_prefix: filePrefix,     // Préfixe exact des fichiers (peut différer du nom de région)
         region: region
     };
 }
