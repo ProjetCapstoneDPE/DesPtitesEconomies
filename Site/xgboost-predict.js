@@ -479,7 +479,9 @@ class XGBoostPredictor {
         // 1) StandardScaler sur les colonnes numériques
         const scaledNum = feature_order.numerical.map((col, i) => {
             const val = typeof features[col] === 'number' ? features[col] : parseFloat(features[col]) || 0;
-            return (val - scaler.mean[i]) / scaler.scale[i];
+            const res = (val - scaler.mean[i]) / scaler.scale[i];
+            console.log(`[XGBoost Scale] ${col}: ${val} -> ${res.toFixed(4)} (mean=${scaler.mean[i].toFixed(2)}, scale=${scaler.scale[i].toFixed(2)})`);
+            return res;
         });
 
         // 2) OneHotEncoder sur les colonnes catégorielles
@@ -490,10 +492,13 @@ class XGBoostPredictor {
             // OneHot: un 1.0 si match, sinon NaN (valeur manquante pour XGBoost)
             // C'est CRITIQUE : XGBoost traite les 0 structurels du sparse matrix comme manquants
             cats.forEach(cat => {
-                if (val === cat) {
+                const catNormalized = cat.toLowerCase().trim();
+                const valNormalized = val.toLowerCase().trim();
+                if (valNormalized === catNormalized) {
                     oheVec.push(1.0);
+                    console.log(`[XGBoost OHE] Match: ${col} = ${cat}`);
                 } else {
-                    oheVec.push(NaN); // NaN is treated as missing by XGBoost, matching sparse training zeros
+                    oheVec.push(0.0);
                 }
             });
         });
@@ -517,19 +522,22 @@ class XGBoostPredictor {
         const trees = learner.gradient_booster.model.trees;
 
         // Base score is directly available in learner_model_param
-        // It might be a string like "5E-1" or a number
         let baseScore = learner.learner_model_param.base_score;
         if (typeof baseScore === 'string') {
             baseScore = parseFloat(baseScore.replace(/[\[\]]/g, ''));
         }
 
-        let sum = baseScore;
-
+        let sumTrees = 0;
         for (const tree of trees) {
-            sum += this._traverseTree(tree, inputVector);
+            sumTrees += this._traverseTree(tree, inputVector);
         }
 
-        return Math.max(0, sum);
+        const totalPrediction = baseScore + sumTrees;
+        
+        // Log de diagnostic pour comprendre l'ordre de grandeur
+        console.log(`[XGBoost Diagnostic] Base Score: ${baseScore.toFixed(2)}, Somme arbres: ${sumTrees.toFixed(2)}, Total: ${totalPrediction.toFixed(2)}`);
+
+        return Math.max(0, totalPrediction);
     }
 
     /**

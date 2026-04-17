@@ -387,20 +387,19 @@
                     }
                 }
 
-                const totalConsoEF = Number(result.prediction) || 0;
+                const consoTheoEP = Number(result.prediction) || 0;
                 let surfaceUsed = Number(surface) || 70;
                 if (result.features_used && result.features_used.surface_habitable_logement) {
                     surfaceUsed = Number(result.features_used.surface_habitable_logement) || surfaceUsed;
                 }
 
-                const kwhEP_m2 = totalConsoEF / surfaceUsed;
+                const kwhEP_m2 = consoTheoEP / surfaceUsed;
                 const heroGrade = getDpeGrade(kwhEP_m2);
 
                 // DPE badge
                 document.getElementById('currentGrade').textContent = heroGrade.grade;
                 document.getElementById('currentGrade').className = `text-6xl font-black mb-2 ${dpeGradeColors[heroGrade.grade]||'text-gray-500'}`;
                 
-                // On utilise text-indigo-600 au lieu de gradient-text pour les chiffres pour éviter les bugs d'affichage mobile
                 document.getElementById('currentValue').textContent = `${Math.round(kwhEP_m2)} kWh/m²/an`;
                 document.getElementById('currentValueInterval').textContent = formatInterval(kwhEP_m2);
                 document.getElementById('modelName').textContent = result.model_used || 'XGBoost';
@@ -408,28 +407,34 @@
                 // DPE Scale
                 renderScale(kwhEP_m2);
 
-                // Conso & cost
+                // Conso & cost & Logic de consistance (Porté de Desktop)
                 let convFactor = 2.3;
                 let energyPrice = 0.2516;
+                let energyLabel = "électricité";
+
                 if (responses.length > 0) {
                     const fossilKeywords = ['gaz', 'fioul', 'bois', 'charbon', 'poêle'];
                     const ecsResp = responses.find(r => r.label.includes('eau') || r.label.includes('Générateur'));
                     const heatResp = responses.find(r => r.label.includes('chauffage') || r.label.includes('Émetteur'));
-                    const isFossil = (ecsResp && ecsResp.value && fossilKeywords.some(k => ecsResp.value.toLowerCase().includes(k))) ||
-                        (heatResp && heatResp.value && fossilKeywords.some(k => heatResp.value.toLowerCase().includes(k)));
-                    if (isFossil) { convFactor = 1.0; energyPrice = 0.12; }
+                    const isFossil = (ecsResp && ecsResp.value && typeof ecsResp.value === 'string' && fossilKeywords.some(k => ecsResp.value.toLowerCase().includes(k))) ||
+                        (heatResp && heatResp.value && typeof heatResp.value === 'string' && fossilKeywords.some(k => heatResp.value.toLowerCase().includes(k)));
+                    
+                    if (isFossil) { 
+                        convFactor = 1.0; 
+                        energyPrice = 0.12; 
+                        energyLabel = "gaz/bois/fioul";
+                    }
                 }
 
+                // COHÉRENCE PHYSIQUE : EF = EP / convFactor
+                const consoTheoEF = consoTheoEP / convFactor;
+                
                 let consoRealEF;
-                let consoTheoEF;
-
-                if (result.predictionElec !== undefined) {
+                if (result.predictionReal && result.predictionElec && convFactor > 1.0) {
                     consoRealEF = Number(result.predictionReal);
-                    consoTheoEF = Number(result.predictionElec);
                 } else {
-                    const consoRealEP = Number(result.predictionReal) || totalConsoEF;
-                    consoRealEF = consoRealEP / convFactor;
-                    consoTheoEF = totalConsoEF / convFactor;
+                    const behaviorFactor = (result.predictionReal && result.predictionElec) ? (result.predictionReal / result.predictionElec) : 0.8;
+                    consoRealEF = consoTheoEF * behaviorFactor;
                 }
                 
                 const formatNum = (v) => (!isNaN(v) && v > 0) ? Math.round(v).toLocaleString('fr-FR') : "--";
@@ -489,11 +494,12 @@
                         document.getElementById('criticalPointsList').innerHTML = cpHtml;
 
                         const improvedFeatures = buildImprovedFeatures(result.features_used, criticalPoints, targetGrade);
-                        let newPrediction = totalConsoEF * 0.7;
+                        let newPrediction = consoTheoEP * 0.7;
                         try {
                             const [modelRegion, modelSurfKey] = result.model_used.split('/');
                             const modelFilePrefix = result.model_file_prefix || modelRegion;
-                            const modelUrl = `models_json/${modelRegion}/pipeline_${modelFilePrefix}_${modelSurfKey}_dpe.json`;
+                            const decodedRegion = decodeURIComponent(modelRegion);
+                            const modelUrl = `models_json/${encodeURIComponent(decodedRegion)}/pipeline_${modelFilePrefix}_${modelSurfKey}_dpe.json`;
                             const predictor = new XGBoostPredictor();
                             await predictor.loadModel(modelUrl);
                             newPrediction = predictor.predict(improvedFeatures);
@@ -513,12 +519,12 @@
                         const ringFrac = Math.max(0, Math.min(1, econPct / 100));
                         setTimeout(() => { const r = document.getElementById('savingsRing'); if(r) r.style.strokeDashoffset = 326.73*(1-ringFrac); }, 500);
 
-                        const savedEP = totalConsoEF - newPrediction;
-                        const savedEuros = Math.max(0, savedEP / 2.3) * 0.2516;
+                        const savedEP = consoTheoEP - newPrediction;
+                        const savedEuros = Math.max(0, savedEP / convFactor) * energyPrice;
                         document.getElementById('savingsAmount').textContent = `${Math.round(savedEuros)} € par an`;
                         document.getElementById('savingsInterval').textContent = formatInterval(savedEuros, true);
 
-                        renderRecommendations(criticalPoints, totalConsoEF, newPrediction);
+                        renderRecommendations(criticalPoints, consoTheoEP, newPrediction);
                     } else {
                         document.getElementById('potentialGrade').textContent = currentGradeStr;
                         document.getElementById('potentialValue').textContent = `${Math.round(kwhEP_m2)} kWh/m²/an`;

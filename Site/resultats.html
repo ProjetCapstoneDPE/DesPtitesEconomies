@@ -1170,50 +1170,61 @@
                 const result = JSON.parse(resultStr);
                 const responses = responsesStr ? JSON.parse(responsesStr) : [];
 
-                // Surface
-                let surface = 70;
+                // 1) DÉTERMINATION DE L'ÉNERGIE ET DU FACTEUR (Calculé tôt pour la consistance)
+                let convFactor = 2.3; 
+                let energyPrice = 0.2516; 
+                let energyLabel = "électricité";
+                
+                if (responses.length > 0) {
+                    const fossilKeywords = ['gaz', 'fioul', 'bois', 'charbon', 'poêle'];
+                    const ecsResp = responses.find(r => r.label.includes('eau') || r.label.includes('Générateur'));
+                    const heatResp = responses.find(r => r.label.includes('chauffage') || r.label.includes('Émetteur'));
+
+                    const isFossil = (ecsResp && ecsResp.value && typeof ecsResp.value === 'string' && fossilKeywords.some(k => ecsResp.value.toLowerCase().includes(k))) ||
+                        (heatResp && heatResp.value && typeof heatResp.value === 'string' && fossilKeywords.some(k => heatResp.value.toLowerCase().includes(k)));
+
+                    if (isFossil) {
+                        convFactor = 1.0;
+                        energyLabel = "gaz/bois/fioul";
+                        energyPrice = 0.12; 
+                    }
+                }
+
+                // 2) VALEURS DE BASE
+                const consoTheoEP = result.prediction;
+                const consoTheoEF = consoTheoEP / convFactor; // COHÉRENCE PHYSIQUE GARANTIE
+
+                let surfaceUsed = 70;
                 const surfResp = responses.find(r => r.label === 'Surface habitable');
                 if (surfResp && surfResp.value) {
                     const parsed = parseFloat(surfResp.value);
                     if (!isNaN(parsed)) {
-                        surface = parsed;
-                    } else {
-                        // Rétrocompatibilité anciens caches
-                        const surfaceMap = {
-                            'Moins de 30m²': 20, '30-50m²': 40, '50-70m²': 60,
-                            '70-90m²': 80, '90-120m²': 105, 'Plus de 120m²': 140
-                        };
-                        surface = surfaceMap[surfResp.value] || 70;
+                        surfaceUsed = parsed;
+                    } else if (result.features_used && result.features_used.surface_habitable_logement) {
+                        surfaceUsed = result.features_used.surface_habitable_logement;
                     }
                 }
 
-                const totalConsoEP = result.prediction;
+                const kwhEP_m2 = consoTheoEP / surfaceUsed;
 
-                let surfaceUsed = surface;
-                if (result.features_used && result.features_used.surface_habitable_logement) {
-                    surfaceUsed = result.features_used.surface_habitable_logement;
-                }
-
-                const kwhEP_m2 = totalConsoEP / surfaceUsed;
-
-                // DPE Scale
+                // 3) AFFICHAGE ÉCHELLE DPE
                 renderScale(kwhEP_m2);
                 document.getElementById('currentValue').textContent = `${Math.round(kwhEP_m2)} kWh/m²/an`;
                 const cvvInterval = document.getElementById('currentValueInterval');
                 if (cvvInterval) cvvInterval.textContent = formatInterval(kwhEP_m2);
                 document.getElementById('co2Value').textContent = Math.round(kwhEP_m2 * 0.15);
 
-                // HERO Section
-                const consoFormatted = Math.round(totalConsoEP).toLocaleString('fr-FR');
+                // 4) SECTION HERO (Haut de page)
+                const consoFormatted = Math.round(consoTheoEP).toLocaleString('fr-FR');
                 document.getElementById('annualConsumption').innerHTML =
-                    `${consoFormatted} <span class="text-2xl sm:text-3xl font-bold">kWh/an</span>`;
+                    `${consoFormatted} <span class="text-2xl sm:text-3xl font-bold">kWh EP/an</span>`;
                 const annInterval = document.getElementById('annualConsumptionInterval');
-                if (annInterval) annInterval.textContent = formatInterval(totalConsoEP);
+                if (annInterval) annInterval.textContent = formatInterval(consoTheoEP);
 
-                // Électricité Finale
+                // Pill Électricité Finale (Basée sur EP / Factor)
                 const elecEl = document.getElementById('elecFinalConso');
-                if (elecEl && result.predictionElec !== undefined) {
-                    elecEl.textContent = `${Math.round(result.predictionElec).toLocaleString('fr-FR')} kWh EF/an`;
+                if (elecEl) {
+                    elecEl.textContent = `${Math.round(consoTheoEF).toLocaleString('fr-FR')} kWh EF/an`;
                 }
 
                 document.getElementById('surfaceUsed').textContent = `${Math.round(surfaceUsed)} m²`;
@@ -1275,43 +1286,21 @@
                     featuresGrid.innerHTML = featHtml;
                 }
 
-                // ==========================================
-                // COMPARAISON THÉORIQUE / RÉEL
-                // ==========================================
-                const consoTheoEP = result.prediction;
-                const consoTheoEFFromModel = result.predictionElec; // Énergie finale électricité
-                
-                // Détection intelligente de l'énergie pour conversion (pour le CO2 ou comparaison si modèle elec absent)
-                let convFactor = 2.3; 
-                let energyPrice = 0.2516; 
-                let energyLabel = "électricité";
 
-                const responsesRaw = localStorage.getItem('dpe_responses');
-                if (responsesRaw) {
-                    const responses = JSON.parse(responsesRaw);
-                    const fossilKeywords = ['gaz', 'fioul', 'bois', 'charbon', 'poêle'];
-                    const ecsResp = responses.find(r => r.label.includes('eau') || r.label.includes('Générateur'));
-                    const heatResp = responses.find(r => r.label.includes('chauffage') || r.label.includes('Émetteur'));
-
-                    const isFossil = (ecsResp && ecsResp.value && typeof ecsResp.value === 'string' && fossilKeywords.some(k => ecsResp.value.toLowerCase().includes(k))) ||
-                        (heatResp && heatResp.value && typeof heatResp.value === 'string' && fossilKeywords.some(k => heatResp.value.toLowerCase().includes(k)));
-
-                    if (isFossil) {
-                        convFactor = 1.0;
-                        energyLabel = "gaz/bois/fioul";
-                        energyPrice = 0.12;
-                    }
-                }
-
-                let consoRealEF = result.predictionReal;
-                let displayConsoTheo;
-
-                if (consoTheoEFFromModel !== undefined) {
-                    // On affiche le DPE (EP) dans la case théorique pour être cohérent avec le score global
-                    displayConsoTheo = consoTheoEP;
+                // Estimation de l'usage réel basé sur l'EF théorique (pour être cohérent avec l'énergie finale facturée)
+                // On utilise la prédiction "Real" du modèle si disponible, mais on la cape par la cohérence physique
+                let consoRealEF;
+                if (result.predictionReal && result.predictionElec && convFactor > 1.0) {
+                    // Cas électrique : on peut faire confiance au modèle Elec + Calibration
+                    // Mais on s'assure qu'on ne dépasse pas un certain ratio incohérent
+                    consoRealEF = Math.min(result.predictionReal, consoTheoEF * 2); 
                 } else {
-                    displayConsoTheo = consoTheoEP;
+                    // Cas fossile ou si modèle Elec diverge trop : on dérive du DPE avec un facteur de comportement par défaut
+                    const behaviorFactor = (result.predictionReal && result.predictionElec) ? (result.predictionReal / result.predictionElec) : 0.8;
+                    consoRealEF = consoTheoEF * Math.min(1.5, behaviorFactor);
                 }
+
+                const displayConsoTheo = consoTheoEP; 
 
                 const consoTheoEl = document.getElementById('consoTheoBlock');
                 const consoRealEl = document.getElementById('consoRealBlock');
@@ -1327,7 +1316,7 @@
                     costRealEl.textContent = Math.round(consoRealEF * energyPrice).toLocaleString('fr-FR') + ' €';
                     document.getElementById('costRealInterval').textContent = formatInterval(consoRealEF * energyPrice, true);
 
-                    console.log(`Détection énergie: ${energyLabel}, Facteur conversion: ${convFactor}`);
+                    console.log(`[Consistance] Énergie: ${energyLabel}, EP: ${consoTheoEP}, EF: ${consoTheoEF}, Réel: ${consoRealEF}`);
                 }
 
                 // ==========================================
@@ -1428,8 +1417,8 @@
 
                         // Savings amount (basé sur la vraie différence)
                         const savedEP = consoTheoEP - newPrediction;
-                        const savedEF = savedEP / 2.3; // Conversion en énergie finale
-                        const savedEuros = Math.max(0, savedEF) * 0.2516;
+                        const savedEF = savedEP / convFactor; // On utilise le facteur dynamique
+                        const savedEuros = Math.max(0, savedEF) * energyPrice;
                         document.getElementById('savingsAmount').textContent = `${Math.round(savedEuros)} € par an`;
                         document.getElementById('savingsInterval').textContent = formatInterval(savedEuros, true);
 
