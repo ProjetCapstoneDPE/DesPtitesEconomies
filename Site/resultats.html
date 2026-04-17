@@ -1126,7 +1126,8 @@
             const responsesStr = localStorage.getItem('dpe_responses');
 
             if (!resultStr) {
-                renderScale(185);
+                console.warn('[Résultats] Aucune prédiction trouvée, retour à l\'estimation');
+                window.location.href = 'estimation.html';
                 return;
             }
 

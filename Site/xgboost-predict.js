@@ -625,7 +625,7 @@ async function predictClientSide(responsesArray) {
     
     // --- SÉCURITÉ : BORNES SUR LA CONSOMMATION THÉORIQUE ---
     const surfaceValForBounds = features.surface_habitable_logement || 70.0;
-    const minConso = surfaceValForBounds * 40; 
+    const minConso = surfaceValForBounds * 5; 
     const maxConso = surfaceValForBounds * 1200;
     
     if (predictionTheoretical < minConso) {

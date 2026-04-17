@@ -434,19 +434,20 @@
                 }
 
                 // Update progress bar and percentage
+                let animationDone = false;
                 const progressInterval = setInterval(() => {
                     currentProgress += increment;
+
+                    // Cap at 90% until prediction is done
+                    if (currentProgress >= 90 && !animationDone) {
+                        currentProgress = 90;
+                    }
 
                     if (currentProgress >= 100) {
                         currentProgress = 100;
                         clearInterval(progressInterval);
 
-                        // Wait for API if it's still pending (though we set timeout 200ms after 100%)
-                        // We'll proceed regardless after a short delay
-                        setTimeout(async () => {
-                            if (apiPromise) {
-                                try { await apiPromise; } catch (e) { }
-                            }
+                        setTimeout(() => {
                             window.location.href = 'resultats.html';
                         }, 200);
                     }
@@ -454,6 +455,12 @@
                     progressBar.style.width = currentProgress + '%';
                     percentage.textContent = Math.round(currentProgress) + '%';
                 }, interval);
+
+                // Wait for prediction to finish, then let animation reach 100%
+                if (apiPromise) {
+                    try { await apiPromise; } catch (e) { console.error('Prediction failed:', e); }
+                }
+                animationDone = true;
 
                 // Change loading text during animation
                 const textInterval = setInterval(() => {

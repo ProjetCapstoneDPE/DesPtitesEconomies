@@ -124,19 +124,28 @@
                     .catch(() => { localStorage.removeItem('dpe_result'); });
             }
 
+            let animationDone = false;
             const pInterval = setInterval(() => {
                 progress += increment;
+                if (progress >= 90 && !animationDone) {
+                    progress = 90;
+                }
                 if (progress >= 100) {
                     progress = 100;
                     clearInterval(pInterval);
-                    setTimeout(async () => {
-                        if (apiPromise) try { await apiPromise; } catch(e) {}
+                    setTimeout(() => {
                         window.location.href = 'resultats-mobile.html';
                     }, 200);
                 }
                 progressBar.style.width = progress + '%';
                 percentage.textContent = Math.round(progress) + '%';
             }, interval);
+
+            // Wait for prediction to finish, then let animation reach 100%
+            if (apiPromise) {
+                try { await apiPromise; } catch(e) { console.error('Prediction failed:', e); }
+            }
+            animationDone = true;
 
             setInterval(() => {
                 msgIdx++;
