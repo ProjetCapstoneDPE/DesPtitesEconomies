@@ -424,19 +424,28 @@ class XGBoostPredictor {
 
         // Extraction du nom du modèle pour récupérer l'objet global
         // ex: "models_json/Bretagne/pipeline_Bretagne_30-50m2.js" -> "pipeline_Bretagne_30-50m2"
-        const filename = jsUrl.split('/').pop().replace('.js', '');
+        // On utilise decodeURIComponent car les URLs peuvent être encodées (ex: %20 pour espace)
+        const filename = decodeURIComponent(jsUrl.split('/').pop().replace('.js', ''));
 
-        // Chargement via <script> tag
-        await this._loadScript(jsUrl);
+        console.log(`[XGBoost] Tentative de chargement du modèle: ${filename} via ${jsUrl}`);
 
-        // Récupération depuis l'espace global
-        this.modelData = window.XGB_MODELS && window.XGB_MODELS[filename];
+        try {
+            // Chargement via <script> tag
+            await this._loadScript(jsUrl);
 
-        if (!this.modelData) {
-            throw new Error(`Modèle chargé mais introuvable dans window.XGB_MODELS['${filename}']`);
+            // Récupération depuis l'espace global
+            this.modelData = window.XGB_MODELS && window.XGB_MODELS[filename];
+
+            if (!this.modelData) {
+                console.error(`[XGBoost] window.XGB_MODELS keys:`, Object.keys(window.XGB_MODELS || {}));
+                throw new Error(`Modèle chargé (${jsUrl}) mais introuvable dans window.XGB_MODELS['${filename}']`);
+            }
+
+            console.log(`[XGBoost] Modèle chargé avec succès: ${this.modelData.model_name} (${this.modelData.xgboost.learner.gradient_booster.model.trees.length} arbres)`);
+        } catch (e) {
+            console.error(`[XGBoost] Échec du chargement du modèle: ${jsUrl}`, e);
+            throw e;
         }
-
-        console.log(`[XGBoost] Modèle chargé: ${this.modelData.model_name} (${this.modelData.xgboost.learner.gradient_booster.model.trees.length} arbres)`);
     }
 
     /**
@@ -682,13 +691,13 @@ async function predictClientSide(responsesArray) {
     const confidenceScore = Math.min(85, Math.max(40, Math.floor(60 + (predictionTheoretical / 500) * 20)));
 
     return {
-        prediction: predictionTheoretical, // On conserve l'approche DPE normée
-        predictionElec: predictionTheoreticalElec,
-        predictionReal: predictionReal,    // Valeur calculée pour la comparaison comportementale (basée sur Elec)
+        prediction: predictionTheoretical,     // Énergie Primaire totale (kWh EP/an) - Base du DPE
+        predictionElec: predictionTheoreticalElec, // Énergie Finale électricité (kWh EF/an)
+        predictionReal: predictionReal,         // Usage réel estimé (kWh EF/an)
         confidence_score: confidenceScore,
         features_used: features,
         model_used: `${region}/${surfaceKey}`,
-        model_file_prefix: filePrefix,     // Préfixe exact des fichiers (peut différer du nom de région)
+        model_file_prefix: filePrefix,
         region: region
     };
 }

@@ -433,18 +433,17 @@
                                     <div class="text-[10px] uppercase tracking-wider text-white/50 mb-1">Surface</div>
                                     <div id="surfaceUsed" class="text-lg font-bold">— m²</div>
                                 </div>
-                                <div class="text-white/20">
-                                    <span class="material-icons" style="font-size:20px">arrow_forward</span>
+                                <div
+                                    class="stat-pill bg-white/10 backdrop-blur-sm rounded-2xl px-5 py-3 text-center border border-white/15">
+                                    <div class="text-[10px] uppercase tracking-wider text-white/50 mb-1">Élec. Finale</div>
+                                    <div id="elecFinalConso" class="text-lg font-bold text-blue-300">— kWh EF/an</div>
                                 </div>
                                 <div
                                     class="stat-pill bg-white/10 backdrop-blur-sm rounded-2xl px-5 py-3 text-center border border-white/15">
-                                    <div class="text-[10px] uppercase tracking-wider text-white/50 mb-1">par m²</div>
-                                    <div id="consoPerM2" class="text-lg font-bold">— kWh/m²/an</div>
+                                    <div class="text-[10px] uppercase tracking-wider text-white/50 mb-1">par m² (EP)</div>
+                                    <div id="consoPerM2" class="text-lg font-bold">— kWh EP/m²/an</div>
                                     <div id="consoPerM2Interval" class="text-[10px] font-medium text-white/60 mt-1">
                                     </div>
-                                </div>
-                                <div class="text-white/20">
-                                    <span class="material-icons" style="font-size:20px">arrow_forward</span>
                                 </div>
                                 <div
                                     class="stat-pill bg-gradient-to-br from-amber-400/20 to-yellow-300/20 backdrop-blur-sm rounded-2xl px-6 py-3 text-center border-2 border-amber-300/30">
@@ -535,12 +534,11 @@
                             <!-- Conso Théorique -->
                             <div
                                 class="bg-white/50 rounded-2xl p-5 border border-gray-100 flex flex-col items-center justify-center text-center">
-                                <div class="text-xs text-gray-400 font-medium uppercase tracking-wider mb-2">Théorique
-                                    (DPE)</div>
+                                <div class="text-xs text-gray-400 font-medium uppercase tracking-wider mb-2">Théorique (DPE)</div>
                                 <div id="consoTheoBlock" class="text-3xl font-extrabold text-indigo-600 mb-1">—</div>
                                 <div id="consoTheoInterval" class="text-xs font-medium text-indigo-400 mb-1"></div>
                                 <div class="text-sm font-semibold text-gray-600">kWh EP/an</div>
-                                <div class="mt-2 text-xs text-gray-500">Énergie primaire</div>
+                                <div class="mt-2 text-[10px] text-gray-400 uppercase tracking-tighter">Énergie primaire</div>
                             </div>
 
                             <!-- Conso Réelle -->
@@ -550,12 +548,11 @@
                                     <span class="material-icons" style="font-size: 80px;">euro_symbol</span>
                                 </div>
                                 <div class="relative z-10">
-                                    <div class="text-xs text-indigo-400 font-bold uppercase tracking-wider mb-2">Votre
-                                        Usage Réel estimé</div>
+                                    <div class="text-xs text-indigo-400 font-bold uppercase tracking-wider mb-2">Usage Réel estimé</div>
                                     <div id="consoRealBlock" class="text-4xl font-extrabold text-indigo-700 mb-1">—
                                     </div>
                                     <div id="consoRealInterval" class="text-xs font-medium text-indigo-400 mb-1"></div>
-                                    <div class="text-sm font-semibold text-indigo-500 mb-3">kWh EF/an (Énergie finale)
+                                    <div class="text-sm font-semibold text-indigo-500 mb-3">kWh EF/an (Électrique)
                                     </div>
                                     <div class="bg-indigo-600 text-white rounded-xl px-4 py-2 shadow-md inline-block">
                                         <div class="text-[10px] uppercase opacity-80 mb-0.5">Coût annuel de
@@ -1126,8 +1123,46 @@
             const responsesStr = localStorage.getItem('dpe_responses');
 
             if (!resultStr) {
-                console.warn('[Résultats] Aucune prédiction trouvée, retour à l\'estimation');
-                window.location.href = 'estimation.html';
+                console.warn('[Résultats] Aucune prédiction trouvée dans localStorage');
+                
+                // Tenter une re-prédiction automatique si les réponses existent
+                if (responsesStr) {
+                    // Afficher un état de chargement
+                    const scaleContainer = document.querySelector('.scale-container');
+                    if (scaleContainer) {
+                        scaleContainer.innerHTML = '<div style="text-align:center; padding: 2rem; font-family: Outfit, sans-serif;"><div class="spinner" style="border: 4px solid rgba(0,0,0,0.1); border-left-color: var(--primary-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 1rem;"></div><p>Chargement de vos résultats personnalisés...</p></div>';
+                        if (!document.getElementById('spin-style')) {
+                            const style = document.createElement('style');
+                            style.id = 'spin-style';
+                            style.innerHTML = '@keyframes spin { to { transform: rotate(360deg); } }';
+                            document.head.appendChild(style);
+                        }
+                    }
+
+                    try {
+                        const responses = JSON.parse(responsesStr);
+                        console.log('[Résultats] Tentative de re-prédiction avec les réponses sauvegardées...');
+                        const result = await predictClientSide(responses);
+                        localStorage.setItem('dpe_result', JSON.stringify({
+                            prediction: result.prediction,
+                            predictionElec: result.predictionElec,
+                            predictionReal: result.predictionReal,
+                            confidence_score: result.confidence_score,
+                            features_used: result.features_used,
+                            model_used: result.model_used,
+                            model_file_prefix: result.model_file_prefix,
+                            region: result.region
+                        }));
+                        console.log('[Résultats] Re-prédiction réussie, rechargement...');
+                        await updateResults();
+                    } catch (e) {
+                        console.error('[Résultats] Re-prédiction échouée:', e);
+                        renderScale(185); // Fallback D
+                        if (scaleContainer) scaleContainer.innerHTML = '<p style="text-align:center; color:red;">Erreur lors du calcul des résultats. Veuillez réessayer.</p>';
+                    }
+                } else {
+                    renderScale(185);
+                }
                 return;
             }
 
@@ -1152,14 +1187,14 @@
                     }
                 }
 
-                const totalConsoEF = result.prediction;
+                const totalConsoEP = result.prediction;
 
                 let surfaceUsed = surface;
                 if (result.features_used && result.features_used.surface_habitable_logement) {
                     surfaceUsed = result.features_used.surface_habitable_logement;
                 }
 
-                const kwhEP_m2 = totalConsoEF / surfaceUsed;
+                const kwhEP_m2 = totalConsoEP / surfaceUsed;
 
                 // DPE Scale
                 renderScale(kwhEP_m2);
@@ -1169,14 +1204,20 @@
                 document.getElementById('co2Value').textContent = Math.round(kwhEP_m2 * 0.15);
 
                 // HERO Section
-                const consoFormatted = Math.round(totalConsoEF).toLocaleString('fr-FR');
+                const consoFormatted = Math.round(totalConsoEP).toLocaleString('fr-FR');
                 document.getElementById('annualConsumption').innerHTML =
                     `${consoFormatted} <span class="text-2xl sm:text-3xl font-bold">kWh/an</span>`;
                 const annInterval = document.getElementById('annualConsumptionInterval');
-                if (annInterval) annInterval.textContent = formatInterval(totalConsoEF);
+                if (annInterval) annInterval.textContent = formatInterval(totalConsoEP);
+
+                // Électricité Finale
+                const elecEl = document.getElementById('elecFinalConso');
+                if (elecEl && result.predictionElec !== undefined) {
+                    elecEl.textContent = `${Math.round(result.predictionElec).toLocaleString('fr-FR')} kWh EF/an`;
+                }
 
                 document.getElementById('surfaceUsed').textContent = `${Math.round(surfaceUsed)} m²`;
-                document.getElementById('consoPerM2').textContent = `${Math.round(kwhEP_m2)} kWh/m²/an`;
+                document.getElementById('consoPerM2').textContent = `${Math.round(kwhEP_m2)} kWh EP/m²/an`;
                 const m2Interval = document.getElementById('consoPerM2Interval');
                 if (m2Interval) m2Interval.textContent = formatInterval(kwhEP_m2);
 
@@ -1238,10 +1279,11 @@
                 // COMPARAISON THÉORIQUE / RÉEL
                 // ==========================================
                 const consoTheoEP = result.prediction;
+                const consoTheoEFFromModel = result.predictionElec; // Énergie finale électricité
                 
-                // Détection intelligente de l'énergie pour conversion
-                let convFactor = 2.3; // Par défaut électricité (DPE Neuf/RE2020)
-                let energyPrice = 0.2516; // Prix moyen électricité 2024
+                // Détection intelligente de l'énergie pour conversion (pour le CO2 ou comparaison si modèle elec absent)
+                let convFactor = 2.3; 
+                let energyPrice = 0.2516; 
                 let energyLabel = "électricité";
 
                 const responsesRaw = localStorage.getItem('dpe_responses');
@@ -1261,19 +1303,14 @@
                     }
                 }
 
-                let consoRealEF;
-                let consoTheoEF;
+                let consoRealEF = result.predictionReal;
+                let displayConsoTheo;
 
-                if (result.predictionElec !== undefined) {
-                    // Le modèle électrique calcule directement l'EF 
-                    consoRealEF = result.predictionReal;
-                    // On utilise la conso électrique théorique pour l'affichage de gauche
-                    consoTheoEF = result.predictionElec;
+                if (consoTheoEFFromModel !== undefined) {
+                    // On affiche le DPE (EP) dans la case théorique pour être cohérent avec le score global
+                    displayConsoTheo = consoTheoEP;
                 } else {
-                    // Rétrocompatibilité avec l'ancien comportement
-                    const consoRealEP = result.predictionReal || consoTheoEP;
-                    consoRealEF = consoRealEP / convFactor;
-                    consoTheoEF = consoTheoEP / convFactor;
+                    displayConsoTheo = consoTheoEP;
                 }
 
                 const consoTheoEl = document.getElementById('consoTheoBlock');
@@ -1281,8 +1318,8 @@
                 const costRealEl = document.getElementById('costRealBlock');
 
                 if (consoTheoEl && consoRealEl && costRealEl) {
-                    consoTheoEl.textContent = Math.round(consoTheoEF).toLocaleString('fr-FR');
-                    document.getElementById('consoTheoInterval').textContent = formatInterval(consoTheoEF);
+                    consoTheoEl.textContent = Math.round(displayConsoTheo).toLocaleString('fr-FR');
+                    document.getElementById('consoTheoInterval').textContent = formatInterval(displayConsoTheo);
 
                     consoRealEl.textContent = Math.round(consoRealEF).toLocaleString('fr-FR');
                     document.getElementById('consoRealInterval').textContent = formatInterval(consoRealEF);
