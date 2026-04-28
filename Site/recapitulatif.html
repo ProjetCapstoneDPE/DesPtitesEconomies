@@ -424,11 +424,20 @@
                     const responsesArray = JSON.parse(savedData);
                     apiPromise = predictClientSide(responsesArray)
                         .then(data => {
-                            console.log("Prediction (client-side):", data);
-                            localStorage.setItem('dpe_result', JSON.stringify(data));
+                            console.log("[Récapitulatif Desktop] Prediction (client-side):", data.prediction);
+                            localStorage.setItem('dpe_result', JSON.stringify({
+                                prediction: data.prediction,
+                                predictionElec: data.predictionElec,
+                                predictionReal: data.predictionReal,
+                                confidence_score: data.confidence_score,
+                                features_used: data.features_used,
+                                model_used: data.model_used,
+                                model_file_prefix: data.model_file_prefix,
+                                region: data.region
+                            }));
                             return data;
                         }).catch(error => {
-                            console.error('Erreur prediction client-side:', error);
+                            console.error('[Récapitulatif Desktop] Erreur prediction client-side:', error);
                             localStorage.removeItem('dpe_result');
                         });
                 }

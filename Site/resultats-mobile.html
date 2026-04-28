@@ -41,6 +41,7 @@
             background-size: 200% auto;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            background-clip: text;
             animation: shimmer 3s linear infinite;
         }
 
@@ -669,6 +670,8 @@
                 }
 
                 const kwhEP_m2 = consoTheoEP / surfaceUsed;
+
+                console.log(`[Mobile] EP=${consoTheoEP.toFixed(0)}, EF=${consoTheoEF.toFixed(0)}, Surface=${surfaceUsed}, kWh/m²=${kwhEP_m2.toFixed(1)}`);
                 const heroGrade = getDpeGrade(kwhEP_m2);
 
                 // 3) AFFICHAGE HERO (Nouveau design)
@@ -690,13 +693,25 @@
                 renderScale(kwhEP_m2);
 
                 // 5) ESTIMATION DE LA FACTURE (Calculée sur EF)
+                // Calcul robuste de la conso réelle — ne produit JAMAIS 0
                 let consoRealEF;
-                if (result.predictionReal && result.predictionElec && convFactor > 1.0) {
-                    consoRealEF = Math.min(Number(result.predictionReal) || 0, consoTheoEF * 2);
+                const predReal = Number(result.predictionReal) || 0;
+                const predElec = Number(result.predictionElec) || 0;
+
+                if (predReal > 0 && predElec > 0 && convFactor > 1.0) {
+                    // Cas électrique avec modèle réel disponible
+                    consoRealEF = Math.min(predReal, consoTheoEF * 2);
+                } else if (predReal > 0 && predElec > 0) {
+                    // Cas fossile avec modèle réel
+                    const behaviorFactor = Math.min(1.5, predReal / predElec);
+                    consoRealEF = consoTheoEF * behaviorFactor;
                 } else {
-                    const behaviorFactor = (result.predictionReal && result.predictionElec) ? (result.predictionReal / result.predictionElec) : 0.8;
-                    consoRealEF = consoTheoEF * Math.min(1.5, behaviorFactor);
+                    // Fallback : 80% de la conso théorique EF
+                    consoRealEF = consoTheoEF * 0.8;
                 }
+                // Sécurité : jamais en dessous de 100 kWh
+                consoRealEF = Math.max(100, consoRealEF);
+                console.log(`[Mobile Facture] predReal=${predReal.toFixed(0)}, predElec=${predElec.toFixed(0)}, consoRealEF=${consoRealEF.toFixed(0)}`);
 
                 const formatNum = (v) => (!isNaN(v) && v > 0) ? Math.round(v).toLocaleString('fr-FR') : "--";
 
@@ -742,71 +757,77 @@
 
                     console.log(`[Points Critiques] Tous: ${allCriticalPoints.length} | Affichables: ${displayCriticalPoints.length}`);
 
-                    // 2) S'il y a des points critiques (même non affichables), calculer l'amélioration
-                    if (allCriticalPoints.length > 0) {
-                        // Afficher les points critiques modifiables dans l'UI
-                        if (displayCriticalPoints.length > 0) {
-                            document.getElementById('criticalPointsSection').style.display = 'block';
-                            document.getElementById('targetClassBadge').textContent = targetGrade;
-                            let cpHtml = '';
-                            displayCriticalPoints.forEach(cp => {
-                                const getLabel = (v) => (window.FEATURE_VALUE_LABELS && window.FEATURE_VALUE_LABELS[v]) ? window.FEATURE_VALUE_LABELS[v] : v;
-                                const cv = typeof cp.currentValue === 'number' ? Math.round(cp.currentValue * 100) / 100 + (cp.unit ? ' ' + cp.unit : '') : getLabel(cp.currentValue);
-                                const tv = typeof cp.targetValue === 'number' ? Math.round(cp.targetValue * 100) / 100 + (cp.unit ? ' ' + cp.unit : '') : getLabel(cp.targetValue);
-                                cpHtml += `<div class="flex items-center gap-2 p-2.5 bg-gradient-to-r from-red-50/80 to-amber-50/80 rounded-xl border border-red-200/50">
-                                    <span class="text-lg">${cp.icon}</span>
-                                    <div class="flex-1 min-w-0"><p class="text-[11px] font-bold text-gray-700">${cp.label}</p>
-                                        <div class="flex items-center gap-1.5 mt-0.5"><span class="text-[10px] font-semibold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full truncate max-w-[90px]" title="${cv}">${cv}</span><span class="material-icons text-gray-400" style="font-size:12px">arrow_forward</span><span class="text-[10px] font-semibold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full truncate max-w-[90px]" title="${tv}">${tv}</span></div>
-                                    </div>
-                                </div>`;
-                            });
-                            document.getElementById('criticalPointsList').innerHTML = cpHtml;
-                        }
+                    // 2) Afficher les points critiques modifiables dans l'UI
+                    if (displayCriticalPoints.length > 0) {
+                        document.getElementById('criticalPointsSection').style.display = 'block';
+                        document.getElementById('targetClassBadge').textContent = targetGrade;
+                        let cpHtml = '';
+                        displayCriticalPoints.forEach(cp => {
+                            const getLabel = (v) => (window.FEATURE_VALUE_LABELS && window.FEATURE_VALUE_LABELS[v]) ? window.FEATURE_VALUE_LABELS[v] : v;
+                            const cv = typeof cp.currentValue === 'number' ? Math.round(cp.currentValue * 100) / 100 + (cp.unit ? ' ' + cp.unit : '') : getLabel(cp.currentValue);
+                            const tv = typeof cp.targetValue === 'number' ? Math.round(cp.targetValue * 100) / 100 + (cp.unit ? ' ' + cp.unit : '') : getLabel(cp.targetValue);
+                            cpHtml += `<div class="flex items-center gap-2 p-2.5 bg-gradient-to-r from-red-50/80 to-amber-50/80 rounded-xl border border-red-200/50">
+                                <span class="text-lg">${cp.icon}</span>
+                                <div class="flex-1 min-w-0"><p class="text-[11px] font-bold text-gray-700">${cp.label}</p>
+                                    <div class="flex items-center gap-1.5 mt-0.5"><span class="text-[10px] font-semibold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full truncate max-w-[90px]" title="${cv}">${cv}</span><span class="material-icons text-gray-400" style="font-size:12px">arrow_forward</span><span class="text-[10px] font-semibold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full truncate max-w-[90px]" title="${tv}">${tv}</span></div>
+                                </div>
+                            </div>`;
+                        });
+                        document.getElementById('criticalPointsList').innerHTML = cpHtml;
+                    }
 
-                        // 3) Construire les features améliorées avec TOUS les points critiques (pas seulement les affichables)
+                    // 3) Construire les features améliorées et re-prédire
+                    let newPrediction;
+                    if (allCriticalPoints.length > 0) {
                         const improvedFeatures = buildImprovedFeatures(result.features_used, allCriticalPoints, targetGrade);
-                        let newPrediction = consoTheoEP * 0.7;
+                        newPrediction = consoTheoEP * 0.7; // fallback
                         try {
-                            // model_used = "Region/surfaceKey" — même format URL que desktop
                             const [modelRegion, modelSurfKey] = result.model_used.split('/');
                             const modelFilePrefix = result.model_file_prefix || modelRegion;
                             const modelUrl = `models_json/${modelRegion}/pipeline_${modelFilePrefix}_${modelSurfKey}_dpe.json`;
+                            console.log(`[Mobile Re-prédiction] URL: ${modelUrl}`);
                             const predictor = new XGBoostPredictor();
                             await predictor.loadModel(modelUrl);
                             newPrediction = predictor.predict(improvedFeatures);
+                            console.log(`[Mobile Re-prédiction] Succès: ${newPrediction.toFixed(1)} kWh/an (vs ${consoTheoEP.toFixed(1)})`);
                         } catch (e) {
-                            console.warn('[Re-prédiction] Fallback:', e.message);
+                            console.warn('[Mobile Re-prédiction] Fallback 70%:', e.message);
                         }
-
-                        // Sécurité: la nouvelle prédiction ne peut pas être artificiellement trop basse
-                        const newKwhM2Raw = newPrediction / surfaceUsed;
-                        const targetGradeIdx = ['A','B','C','D','E','F','G'].indexOf(targetGrade);
-                        const minKwhM2ForTarget = targetGradeIdx > 0 ? dpeScaleRef[targetGradeIdx - 1].max + 1 : 1;
-                        const newKwhM2 = Math.max(newKwhM2Raw, minKwhM2ForTarget * 0.5);
-
-                        const potGrade = getDpeGrade(newKwhM2);
-                        const econPct = Math.round(((kwhEP_m2 - newKwhM2) / kwhEP_m2) * 100);
-
-                        document.getElementById('potentialGrade').textContent = potGrade.grade;
-                        document.getElementById('potentialGrade').className = `text-4xl font-black ${dpeGradeColors[potGrade.grade] || 'text-emerald-500'}`;
-                        document.getElementById('potentialValue').textContent = `${Math.round(newKwhM2)} kWh/m²/an`;
-                        document.getElementById('economyPercent').textContent = `~${Math.max(0, econPct)}%`;
-
-                        const ringFrac = Math.max(0, Math.min(1, econPct / 100));
-                        setTimeout(() => { const r = document.getElementById('savingsRing'); if (r) r.style.strokeDashoffset = 326.73 * (1 - ringFrac); }, 500);
-
-                        const savedEP = consoTheoEP - (newKwhM2 * surfaceUsed);
-                        const savedEuros = Math.max(0, savedEP / convFactor) * energyPrice;
-                        document.getElementById('savingsAmount').textContent = `${Math.round(savedEuros)} € par an`;
-                        document.getElementById('savingsInterval').textContent = formatInterval(savedEuros, true);
-
-                        renderRecommendations(displayCriticalPoints.length > 0 ? displayCriticalPoints : allCriticalPoints, consoTheoEP, newKwhM2 * surfaceUsed);
                     } else {
-                        document.getElementById('potentialGrade').textContent = currentGradeStr;
-                        document.getElementById('potentialValue').textContent = `${Math.round(kwhEP_m2)} kWh/m²/an`;
-                        document.getElementById('economyPercent').textContent = '0%';
-                        document.getElementById('savingsAmount').textContent = '0 € par an';
+                        // Aucun point critique trouvé mais pas en classe A → fallback raisonnable
+                        newPrediction = consoTheoEP * 0.75;
+                        console.log(`[Mobile] Aucun point critique, fallback 75%: ${newPrediction.toFixed(1)}`);
                     }
+
+                    // Sécurité: cap par la borne basse de la classe cible
+                    const newKwhM2Raw = newPrediction / surfaceUsed;
+                    const targetGradeIdx = ['A','B','C','D','E','F','G'].indexOf(targetGrade);
+                    const minKwhM2ForTarget = targetGradeIdx > 0 ? dpeScaleRef[targetGradeIdx - 1].max + 1 : 1;
+                    const newKwhM2 = Math.max(newKwhM2Raw, minKwhM2ForTarget * 0.5);
+
+                    const potGrade = getDpeGrade(newKwhM2);
+                    const econPct = Math.max(0, Math.round(((kwhEP_m2 - newKwhM2) / kwhEP_m2) * 100));
+
+                    console.log(`[Mobile Amélioration] actuel: ${kwhEP_m2.toFixed(1)} → nouveau: ${newKwhM2.toFixed(1)} kWh/m², économie: ${econPct}%`);
+
+                    document.getElementById('potentialGrade').textContent = potGrade.grade;
+                    document.getElementById('potentialGrade').className = `text-4xl font-black ${dpeGradeColors[potGrade.grade] || 'text-emerald-500'}`;
+                    document.getElementById('potentialValue').textContent = `${Math.round(newKwhM2)} kWh/m²/an`;
+                    document.getElementById('economyPercent').textContent = `~${econPct}%`;
+
+                    const ringFrac = Math.max(0, Math.min(1, econPct / 100));
+                    setTimeout(() => { const r = document.getElementById('savingsRing'); if (r) r.style.strokeDashoffset = 326.73 * (1 - ringFrac); }, 500);
+
+                    // Calcul de l'économie en euros
+                    const savedEP = Math.max(0, consoTheoEP - (newKwhM2 * surfaceUsed));
+                    const savedEF = savedEP / convFactor;
+                    const savedEuros = savedEF * energyPrice;
+                    document.getElementById('savingsAmount').textContent = `${Math.round(savedEuros)} € par an`;
+                    document.getElementById('savingsInterval').textContent = savedEuros > 0 ? formatInterval(savedEuros, true) : '';
+
+                    console.log(`[Mobile Économie] EP: ${savedEP.toFixed(0)}, EF: ${savedEF.toFixed(0)}, Euros: ${savedEuros.toFixed(0)}`);
+
+                    renderRecommendations(displayCriticalPoints.length > 0 ? displayCriticalPoints : allCriticalPoints, consoTheoEP, newKwhM2 * surfaceUsed);
                 } else if (currentGradeStr === 'A') {
                     document.getElementById('potentialGrade').textContent = 'A';
                     document.getElementById('potentialGrade').className = 'text-4xl font-black text-green-600';
@@ -814,11 +835,18 @@
                     document.getElementById('economyPercent').textContent = '✓';
                     document.getElementById('savingsAmount').textContent = 'Déjà optimal !';
                     document.getElementById('recoContainer').innerHTML = `<div class="glass-card rounded-2xl p-4 text-center border-l-4 border-green-500"><p class="text-sm font-bold text-green-600">🎉 Classe A ! Votre logement est au top.</p></div>`;
+                } else {
+                    // features_used manquant — fallback visuel
+                    console.warn('[Mobile] features_used manquant, impossible de calculer le potentiel');
+                    document.getElementById('potentialGrade').textContent = '?';
+                    document.getElementById('potentialValue').textContent = 'Données insuffisantes';
+                    document.getElementById('economyPercent').textContent = '--%';
+                    document.getElementById('savingsAmount').textContent = '-- € par an';
                 }
 
                 // Init simulator
                 initSimulation(responses);
-            } catch (e) { console.error("Error displaying results", e); }
+            } catch (e) { console.error("[Mobile] Error displaying results", e); }
         }
 
         // ============================================

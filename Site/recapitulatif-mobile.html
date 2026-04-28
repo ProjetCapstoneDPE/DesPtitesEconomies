@@ -111,46 +111,72 @@
 
             const messages = ['Calcul de votre DPE', 'Analyse des données', 'Génération des recommandations', 'Finalisation...'];
             let progress = 0;
-            const duration = 2500, interval = 30;
-            const increment = 100 / (duration / interval);
+            const interval = 30;
+            const increment = 100 / (2500 / interval);
             let msgIdx = 0;
+            let predictionDone = false;
 
+            // 1) Lancer la prédiction XGBoost
             const savedData = localStorage.getItem('dpe_responses');
             let apiPromise = null;
             if (savedData) {
                 const arr = JSON.parse(savedData);
                 apiPromise = predictClientSide(arr)
-                    .then(data => { localStorage.setItem('dpe_result', JSON.stringify(data)); return data; })
-                    .catch(() => { localStorage.removeItem('dpe_result'); });
+                    .then(data => {
+                        // Sauvegarder avec tous les champs nécessaires
+                        localStorage.setItem('dpe_result', JSON.stringify({
+                            prediction: data.prediction,
+                            predictionElec: data.predictionElec,
+                            predictionReal: data.predictionReal,
+                            confidence_score: data.confidence_score,
+                            features_used: data.features_used,
+                            model_used: data.model_used,
+                            model_file_prefix: data.model_file_prefix,
+                            region: data.region
+                        }));
+                        console.log('[Récapitulatif Mobile] Prédiction sauvegardée:', data.prediction);
+                        return data;
+                    })
+                    .catch(err => {
+                        console.error('[Récapitulatif Mobile] Erreur prédiction:', err);
+                        localStorage.removeItem('dpe_result');
+                    });
             }
 
-            let animationDone = false;
+            // 2) Animation de la barre de progression — pause à 90% jusqu'à fin de prédiction
             const pInterval = setInterval(() => {
                 progress += increment;
-                if (progress >= 90 && !animationDone) {
+                // Bloquer à 90% tant que la prédiction n'est pas terminée
+                if (progress >= 90 && !predictionDone) {
                     progress = 90;
                 }
                 if (progress >= 100) {
                     progress = 100;
                     clearInterval(pInterval);
+                    // Rediriger seulement APRÈS que tout est fini
                     setTimeout(() => {
                         window.location.href = 'resultats-mobile.html';
-                    }, 200);
+                    }, 300);
                 }
                 progressBar.style.width = progress + '%';
                 percentage.textContent = Math.round(progress) + '%';
             }, interval);
 
-            // Wait for prediction to finish, then let animation reach 100%
+            // 3) Attendre la fin de la prédiction, puis débloquer l'animation
             if (apiPromise) {
-                try { await apiPromise; } catch(e) { console.error('Prediction failed:', e); }
+                try { await apiPromise; } catch(e) { console.error('[Récapitulatif Mobile] Prediction failed:', e); }
             }
-            animationDone = true;
+            predictionDone = true;
 
-            setInterval(() => {
+            // Messages de progression
+            const msgInterval = setInterval(() => {
                 msgIdx++;
-                if (msgIdx < messages.length) loadingText.textContent = messages[msgIdx];
-            }, duration / messages.length);
+                if (msgIdx < messages.length) {
+                    loadingText.textContent = messages[msgIdx];
+                } else {
+                    clearInterval(msgInterval);
+                }
+            }, 600);
         }
 
         window.addEventListener('DOMContentLoaded', loadCriteria);
