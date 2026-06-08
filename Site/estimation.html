@@ -468,16 +468,16 @@
             // Corse
             '2A': 'Corse', '2B': 'Corse',
             // Grand Est
-            '08': 'Grand_Est', '10': 'Grand_Est', '51': 'Grand_Est', '52': 'Grand_Est',
-            '54': 'Grand_Est', '55': 'Grand_Est', '57': 'Grand_Est', '67': 'Grand_Est',
-            '68': 'Grand_Est', '88': 'Grand_Est',
+            '08': 'Grand Est', '10': 'Grand Est', '51': 'Grand Est', '52': 'Grand Est',
+            '54': 'Grand Est', '55': 'Grand Est', '57': 'Grand Est', '67': 'Grand Est',
+            '68': 'Grand Est', '88': 'Grand Est',
             // Hauts-de-France
-            '02': 'Hauts_de_France', '59': 'Hauts_de_France', '60': 'Hauts_de_France',
-            '62': 'Hauts_de_France', '80': 'Hauts_de_France',
+            '02': 'Hauts-de-France', '59': 'Hauts-de-France', '60': 'Hauts-de-France',
+            '62': 'Hauts-de-France', '80': 'Hauts-de-France',
             // Île-de-France
-            '75': 'Ile_de_France', '77': 'Ile_de_France', '78': 'Ile_de_France',
-            '91': 'Ile_de_France', '92': 'Ile_de_France', '93': 'Ile_de_France',
-            '94': 'Ile_de_France', '95': 'Ile_de_France',
+            '75': 'Ile-de-France', '77': 'Ile-de-France', '78': 'Ile-de-France',
+            '91': 'Ile-de-France', '92': 'Ile-de-France', '93': 'Ile-de-France',
+            '94': 'Ile-de-France', '95': 'Ile-de-France',
             // Normandie
             '14': 'Normandie', '27': 'Normandie', '50': 'Normandie',
             '61': 'Normandie', '76': 'Normandie',
@@ -492,8 +492,8 @@
             '48': 'Occitanie', '65': 'Occitanie', '66': 'Occitanie', '81': 'Occitanie',
             '82': 'Occitanie',
             // Pays de la Loire
-            '44': 'Pays_de_la_Loire', '49': 'Pays_de_la_Loire', '53': 'Pays_de_la_Loire',
-            '72': 'Pays_de_la_Loire', '85': 'Pays_de_la_Loire',
+            '44': 'Pays de la Loire', '49': 'Pays de la Loire', '53': 'Pays de la Loire',
+            '72': 'Pays de la Loire', '85': 'Pays de la Loire',
             // Provence-Alpes-Côte d'Azur
             '04': "Provence-Alpes-Côte_d'Azur", '05': "Provence-Alpes-Côte_d'Azur",
             '06': "Provence-Alpes-Côte_d'Azur", '13': "Provence-Alpes-Côte_d'Azur",
@@ -510,13 +510,13 @@
             'Bretagne': 'Bretagne',
             'Centre-Val de Loire': 'Centre-Val de Loire',
             'Corse': 'Corse',
-            'Grand_Est': 'Grand Est',
-            'Hauts_de_France': 'Hauts-de-France',
-            'Ile_de_France': 'Île-de-France',
+            'Grand Est': 'Grand Est',
+            'Hauts-de-France': 'Hauts-de-France',
+            'Ile-de-France': 'Île-de-France',
             'Normandie': 'Normandie',
             'Nouvelle-Aquitaine': 'Nouvelle-Aquitaine',
             'Occitanie': 'Occitanie',
-            'Pays_de_la_Loire': 'Pays de la Loire',
+            'Pays de la Loire': 'Pays de la Loire',
             "Provence-Alpes-Côte_d'Azur": "Provence-Alpes-Côte d'Azur",
             'Outre-Mer': 'Outre-Mer'
         };
@@ -876,6 +876,21 @@
                 inputElement.addEventListener('change', handleSelectChange);
                 inputElement.addEventListener('input', handleSelectChange); // Pour l'input text
 
+                if (question.type === 'number') {
+                    inputElement.addEventListener('blur', function(e) {
+                        let val = parseFloat(e.target.value);
+                        if (!isNaN(val)) {
+                            if (val < question.min) val = question.min;
+                            if (val > question.max) val = question.max;
+                            const decimals = (question.step.toString().split('.')[1] || '').length;
+                            val = parseFloat(val.toFixed(decimals));
+                            e.target.value = val;
+                            responses[question.id] = val.toString();
+                            document.getElementById('nextButton').disabled = false;
+                        }
+                    });
+                }
+
                 // Vérifier si une réponse existe déjà
                 if (responses[question.id]) {
                     document.getElementById('nextButton').disabled = false;
@@ -917,6 +932,15 @@
                         // Valeur partielle ou invalide, désactiver Suivant
                         delete responses[question.id];
                         document.getElementById('nextButton').disabled = true;
+                    }
+                } else if (question.type === 'number') {
+                    const val = parseFloat(value);
+                    if (isNaN(val)) {
+                        delete responses[question.id];
+                        document.getElementById('nextButton').disabled = true;
+                    } else {
+                        responses[question.id] = value;
+                        document.getElementById('nextButton').disabled = false;
                     }
                 } else {
                     responses[question.id] = value;
@@ -968,6 +992,22 @@
 
         // Passer à la question suivante
         function nextQuestion() {
+            const question = questions[currentQuestion];
+            if (question.type === 'number') {
+                const inputElement = document.getElementById('questionSelect');
+                if (inputElement) {
+                    let val = parseFloat(inputElement.value);
+                    if (!isNaN(val)) {
+                        if (val < question.min) val = question.min;
+                        if (val > question.max) val = question.max;
+                        const decimals = (question.step.toString().split('.')[1] || '').length;
+                        val = parseFloat(val.toFixed(decimals));
+                        inputElement.value = val;
+                        responses[question.id] = val.toString();
+                    }
+                }
+            }
+
             let nextIdx = currentQuestion + 1;
             while (nextIdx < questions.length) {
                 const q = questions[nextIdx];

@@ -1332,6 +1332,12 @@
                 // ==========================================
                 const currentGrade = heroGrade.grade;
 
+                // RESET: toujours cacher et vider les points critiques avant de recalculer/réafficher
+                const cpSection = document.getElementById('criticalPointsSection');
+                if (cpSection) cpSection.style.display = 'none';
+                const cpList = document.getElementById('criticalPointsList');
+                if (cpList) cpList.innerHTML = '';
+
                 if (result.features_used && currentGrade !== 'A') {
                     // 1) Identifier les points critiques (TOUS)
                     let { targetGrade, criticalPoints: allCriticalPoints } = identifyCriticalPoints(result.features_used, currentGrade);
