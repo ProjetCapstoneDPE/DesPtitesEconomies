@@ -811,9 +811,14 @@
                         document.getElementById('targetClassBadge').textContent = targetGrade;
                         let cpHtml = '';
                         displayCriticalPoints.forEach(cp => {
-                            const getLabel = (v) => (window.FEATURE_VALUE_LABELS && window.FEATURE_VALUE_LABELS[v]) ? window.FEATURE_VALUE_LABELS[v] : v;
-                            const cv = typeof cp.currentValue === 'number' ? Math.round(cp.currentValue * 100) / 100 + (cp.unit ? ' ' + cp.unit : '') : getLabel(cp.currentValue);
-                            const tv = typeof cp.targetValue === 'number' ? Math.round(cp.targetValue * 100) / 100 + (cp.unit ? ' ' + cp.unit : '') : getLabel(cp.targetValue);
+                            const getLabel = (v, key) => {
+                                if (key === 'presence_brasseur_air' || key === 'protection_solaire_exterieure') {
+                                    return Number(v) === 1 ? 'Oui' : 'Non';
+                                }
+                                return (window.FEATURE_VALUE_LABELS && window.FEATURE_VALUE_LABELS[v]) ? window.FEATURE_VALUE_LABELS[v] : v;
+                            };
+                            const cv = (typeof cp.currentValue === 'number' && cp.key !== 'presence_brasseur_air' && cp.key !== 'protection_solaire_exterieure') ? Math.round(cp.currentValue * 100) / 100 + (cp.unit ? ' ' + cp.unit : '') : getLabel(cp.currentValue, cp.key);
+                            const tv = (typeof cp.targetValue === 'number' && cp.key !== 'presence_brasseur_air' && cp.key !== 'protection_solaire_exterieure') ? Math.round(cp.targetValue * 100) / 100 + (cp.unit ? ' ' + cp.unit : '') : getLabel(cp.targetValue, cp.key);
                             cpHtml += `<div class="flex items-center gap-2 p-2.5 bg-gradient-to-r from-red-50/80 to-amber-50/80 rounded-xl border border-red-200/50">
                                 <span class="text-lg">${cp.icon}</span>
                                 <div class="flex-1 min-w-0"><p class="text-[11px] font-bold text-gray-700">${cp.label}</p>
