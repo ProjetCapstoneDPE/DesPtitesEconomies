@@ -174,7 +174,7 @@
                 <div
                     class="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-3 py-1 mb-4 border border-white/20 text-[10px] font-medium text-white">
                     <span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
-                    Modèle : <span id="modelName">XGBoost</span>
+                    Modèle : <span id="modelNameHero" class="font-bold text-white">XGBoost</span>
                 </div>
 
                 <div class="text-[10px] font-semibold text-white/60 uppercase tracking-widest mb-1">Conso. Théorique
@@ -195,12 +195,25 @@
                         <div class="text-[8px] uppercase text-white/50">Élec. Finale</div>
                         <div id="elecFinalConso" class="text-xs font-bold text-blue-200">— kWh EF/an</div>
                     </div>
+                    <div
+                        class="bg-white/10 backdrop-blur-sm rounded-xl px-3 py-1.5 border border-white/15 min-w-[90px]">
+                        <div class="text-[8px] uppercase text-white/50">par m² (EP)</div>
+                        <div id="consoPerM2" class="text-xs font-bold text-white">— kWh EP/m²/an</div>
+                    </div>
+                    <div
+                        class="bg-gradient-to-br from-amber-400/20 to-yellow-300/20 backdrop-blur-sm rounded-xl px-3 py-1.5 border-2 border-amber-300/30 min-w-[70px]">
+                        <div class="text-[8px] uppercase text-amber-200/70">Classe DPE</div>
+                        <div id="heroDpeGrade" class="text-xs font-extrabold text-amber-300">—</div>
+                    </div>
                 </div>
 
                 <div class="flex flex-col items-center gap-1 text-[10px] text-white/60">
                     <div class="flex items-center gap-1">
                         <span class="material-icons" style="font-size:12px">eco</span>
-                        CO₂ : <span id="co2ValueHero" class="font-bold text-white/80">—</span> kg/m²/an
+                        CO₂ émis estimé : <span id="co2ValueHero" class="font-bold text-white/80">—</span> kg/m²/an
+                    </div>
+                    <div id="flightEquivalentHero" class="text-[9px] text-white/40 italic">
+                        Soit l'équivalent de — vols Paris - New York
                     </div>
                 </div>
             </div>
@@ -735,7 +748,17 @@
                 document.getElementById('elecFinalConso').textContent = `${Math.round(consoTheoEF).toLocaleString('fr-FR')} kWh EF/an`;
                 document.getElementById('surfaceUsed').textContent = `${Math.round(surfaceUsed)} m²`;
                 document.getElementById('co2ValueHero').textContent = Math.round(kwhEP_m2 * 0.15);
+                
+                // Mettre à jour les deux badges de modèle (sous-titre et hero card)
                 document.getElementById('modelName').textContent = result.model_used || 'XGBoost';
+                const modelNameHero = document.getElementById('modelNameHero');
+                if (modelNameHero) modelNameHero.textContent = result.model_used || 'XGBoost';
+
+                // Nouveaux indicateurs alignés avec la version desktop
+                const consoPerM2El = document.getElementById('consoPerM2');
+                if (consoPerM2El) consoPerM2El.textContent = `${Math.round(kwhEP_m2)} kWh EP/m²/an`;
+                const heroDpeGradeEl = document.getElementById('heroDpeGrade');
+                if (heroDpeGradeEl) heroDpeGradeEl.textContent = heroGrade.grade;
 
                 // 4) DPE Scale & Badge
                 document.getElementById('currentGrade').textContent = heroGrade.grade;
@@ -782,6 +805,12 @@
                 const totalCo2 = kwhEP_m2 * 0.15 * surfaceUsed;
                 const flights = (totalCo2 / 1000).toFixed(1).replace('.', ',');
                 document.getElementById('flightEquivalent').innerHTML = `≈ ${flights} vol${totalCo2 / 1000 >= 2 ? 's' : ''} Paris–New York/an`;
+
+                // Mettre à jour l'équivalent vol dans la carte Hero
+                const flightHeroEl = document.getElementById('flightEquivalentHero');
+                if (flightHeroEl) {
+                    flightHeroEl.innerHTML = `Soit l'équivalent de <span class="text-white/70 font-semibold">${flights} vol${totalCo2 / 1000 >= 2 ? 's' : ''}</span> Paris - New York par an`;
+                }
 
                 // Features grid
                 if (responses.length > 0) {
