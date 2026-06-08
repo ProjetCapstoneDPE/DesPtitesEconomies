@@ -634,6 +634,12 @@
                                 </div>
                             </div>
                         </div>
+                        
+                        <!-- Message d'avertissement si aucune amélioration n'est possible -->
+                        <div id="potentialWarning" class="mt-5 p-4 bg-amber-50 border border-amber-200/60 text-amber-800 rounded-2xl text-xs font-semibold hidden flex items-start gap-2.5">
+                            <span class="material-icons text-amber-600 text-lg flex-shrink-0">warning</span>
+                            <span>Il sera difficile d'améliorer votre DPE avec des travaux légers. Il est conseillé de consulter un professionnel pour un audit énergétique complet.</span>
+                        </div>
                     </div>
 
                     <!-- ===== SIMULATEUR INTERACTIF ===== -->
@@ -1425,10 +1431,11 @@
 
                     // 3) Construire les features améliorées et re-prédire
                     let newPrediction;
+                    let hasImprovement = false;
+
                     if (allCriticalPoints.length > 0) {
                         const improvedFeatures = buildImprovedFeatures(result.features_used, allCriticalPoints, targetGrade);
                         console.log('[Re-prédiction] Features améliorées:', improvedFeatures);
-                        newPrediction = consoTheoEP * 0.7; // fallback
                         try {
                             const [modelRegion, modelSurfKey] = result.model_used.split('/');
                             const modelFilePrefix = result.model_file_prefix || modelRegion;
@@ -1438,20 +1445,37 @@
                             await predictor.loadModel(modelUrl);
                             newPrediction = predictor.predict(improvedFeatures);
                             console.log(`[Re-prédiction] Succès: ${newPrediction.toFixed(1)} kWh/an (vs ${consoTheoEP.toFixed(1)})`);
+                            
+                            if (newPrediction < consoTheoEP) {
+                                hasImprovement = true;
+                            } else {
+                                console.warn('[Re-prédiction] La prédiction améliorée est supérieure ou égale à la consommation initiale.');
+                            }
                         } catch (e) {
-                            console.warn('[Re-prédiction] Fallback 70%:', e.message);
+                            console.warn('[Re-prédiction] Échec du modèle, pas d\'amélioration par défaut:', e.message);
                         }
-                    } else {
-                        // Aucun point critique trouvé mais pas en classe A → fallback raisonnable
-                        newPrediction = consoTheoEP * 0.75;
-                        console.log(`[Desktop] Aucun point critique, fallback 75%: ${newPrediction.toFixed(1)}`);
                     }
 
-                    // Sécurité: cap par la borne basse de la classe cible
+                    if (!hasImprovement) {
+                        newPrediction = consoTheoEP;
+                    }
+
                     const newKwhM2Raw = newPrediction / surfaceUsed;
-                    const targetGradeIdx = ['A','B','C','D','E','F','G'].indexOf(targetGrade);
-                    const minKwhM2ForTarget = targetGradeIdx > 0 ? dpeScaleRef[targetGradeIdx - 1].max + 1 : 1;
-                    const newKwhM2 = Math.max(newKwhM2Raw, minKwhM2ForTarget * 0.5);
+                    let newKwhM2 = newKwhM2Raw;
+
+                    if (hasImprovement) {
+                        const targetGradeIdx = ['A','B','C','D','E','F','G'].indexOf(targetGrade);
+                        const minKwhM2ForTarget = targetGradeIdx > 0 ? dpeScaleRef[targetGradeIdx - 1].max + 1 : 1;
+                        const maxKwhM2ForTarget = dpeScaleRef[targetGradeIdx].max;
+                        
+                        // S'assurer de ne pas dépasser la borne maximale de la classe cible
+                        newKwhM2 = Math.min(newKwhM2, maxKwhM2ForTarget);
+                        // Borne basse pour éviter les prédictions trop optimistes
+                        newKwhM2 = Math.max(newKwhM2, minKwhM2ForTarget * 0.5);
+                    } else {
+                        // Pas d'amélioration possible : même consommation que l'état actuel
+                        newKwhM2 = kwhEP_m2;
+                    }
 
                     const potentialGradeObj = getDpeGrade(newKwhM2);
                     const economyPct = Math.max(0, Math.round(((kwhEP_m2 - newKwhM2) / kwhEP_m2) * 100));
@@ -1459,6 +1483,15 @@
                     console.log(`[Desktop Amélioration] actuel: ${kwhEP_m2.toFixed(1)} → nouveau: ${newKwhM2.toFixed(1)} kWh/m², économie: ${economyPct}%`);
 
                     // 4) Mettre à jour la section Potentiel
+                    const warningEl = document.getElementById('potentialWarning');
+                    if (warningEl) {
+                        if (!hasImprovement) {
+                            warningEl.classList.remove('hidden');
+                        } else {
+                            warningEl.classList.add('hidden');
+                        }
+                    }
+
                     document.getElementById('potentialGrade').textContent = potentialGradeObj.grade;
                     document.getElementById('potentialGrade').className =
                         `text-5xl font-extrabold mb-1 ${dpeGradeColors[potentialGradeObj.grade] || 'text-emerald-500'}`;
