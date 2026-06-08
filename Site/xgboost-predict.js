@@ -1026,7 +1026,180 @@ function buildImprovedFeatures(features, criticalPoints, targetGrade) {
     return improved;
 }
 
+// =============================================
+// TABLES DE HAUTE PRÉCISION POUR LES INTERVALLES DE CONFIANCE (90%)
+// =============================================
+
+// Table globale RMSE par tranche de surface (fallback si région manquante)
+const MODEL_RMSE_BY_TRANCHE = {
+    "30-50m2": 1324.8,
+    "50-70m2": 2228.5,
+    "70-90m2": 2258.0,
+    "90-120m2": 3104.3,
+    "inf30m2": 1151.7,
+    "sup120m2": 8885.1
+};
+
+// Table RMSE par région et tranche de surface (d'après performances_modeles.csv)
+const MODEL_RMSE = {
+    "Auvergne-Rhône-Alpes": {
+        "30-50m2": 1979.4,
+        "50-70m2": 3350.2,
+        "70-90m2": 2203.4,
+        "90-120m2": 3591.6,
+        "inf30m2": 2440.8,
+        "sup120m2": 9938.9
+    },
+    "Bretagne": {
+        "30-50m2": 1048.2,
+        "50-70m2": 1520.3,
+        "70-90m2": 2046.8,
+        "90-120m2": 2869.8,
+        "inf30m2": 644.7,
+        "sup120m2": 5139.8
+    },
+    "Centre-Val de Loire": {
+        "30-50m2": 1312.1,
+        "50-70m2": 1919.3,
+        "70-90m2": 2403.1,
+        "90-120m2": 3047.7,
+        "inf30m2": 924.7,
+        "sup120m2": 10623.4
+    },
+    "Grand Est": {
+        "30-50m2": 1341.8,
+        "50-70m2": 1953.4,
+        "70-90m2": 2555.2,
+        "90-120m2": 3337.8,
+        "inf30m2": 1549.5,
+        "sup120m2": 10645.9
+    },
+    "Hauts-de-France": {
+        "30-50m2": 1433.4,
+        "50-70m2": 2182.8,
+        "70-90m2": 2343.0,
+        "90-120m2": 3270.7,
+        "inf30m2": 884.7,
+        "sup120m2": 7121.7
+    },
+    "Ile-de-France": {
+        "30-50m2": 1697.8,
+        "50-70m2": 4814.4,
+        "70-90m2": 2622.6,
+        "90-120m2": 3360.6,
+        "inf30m2": 973.5,
+        "sup120m2": 17865.2
+    },
+    "Normandie": {
+        "30-50m2": 1285.2,
+        "50-70m2": 1903.9,
+        "70-90m2": 2256.6,
+        "90-120m2": 2927.2,
+        "inf30m2": 842.1,
+        "sup120m2": 6114.3
+    },
+    "Nouvelle-Aquitaine": {
+        "30-50m2": 1173.2,
+        "50-70m2": 2092.2,
+        "70-90m2": 2327.8,
+        "90-120m2": 3165.1,
+        "inf30m2": 1579.8,
+        "sup120m2": 8329.9
+    },
+    "Occitanie": {
+        "30-50m2": 1103.6,
+        "50-70m2": 1584.0,
+        "70-90m2": 2138.6,
+        "90-120m2": 3041.7,
+        "inf30m2": 1041.1,
+        "sup120m2": 5944.9
+    },
+    "Outre-Mer": {
+        "30-50m2": 906.4,
+        "50-70m2": 805.4,
+        "70-90m2": 1378.9,
+        "90-120m2": 1897.6,
+        "inf30m2": 829.8,
+        "sup120m2": 8298.0
+    },
+    "Provence-Alpes-Côte_d'Azur": {
+        "30-50m2": 1292.1,
+        "50-70m2": 2387.3,
+        "70-90m2": 2561.9,
+        "90-120m2": 3637.9,
+        "inf30m2": 958.1,
+        "sup120m2": 7714.4
+    }
+};
+
+/**
+ * Traduit une surface en clé de tranche de surface.
+ * @param {number} surface 
+ * @returns {string}
+ */
+function getSurfaceTranche(surface) {
+    const s = Number(surface);
+    if (isNaN(s)) return '70-90m2';
+    if (s < 30) return 'inf30m2';
+    if (s <= 50) return '30-50m2';
+    if (s <= 70) return '50-70m2';
+    if (s <= 90) return '70-90m2';
+    if (s <= 120) return '90-120m2';
+    return 'sup120m2';
+}
+
+/**
+ * Formate un intervalle de confiance à 90% basé sur le RMSE réel du modèle.
+ * 
+ * @param {number} val - La valeur centrale estimée.
+ * @param {string} type - Le type de métrique ('total_ep', 'total_ef', 'm2', 'euro').
+ * @param {string} region - La région du logement.
+ * @param {number} surface - La surface habitable.
+ * @param {boolean} isEuro - Si le suffixe doit être en Euros (€).
+ * @param {number} convFactor - Facteur de conversion EP/EF (2.3 pour élec, 1.0 pour fossile).
+ * @param {number} energyPrice - Prix de l'énergie par kWh EF (€).
+ * @returns {string} - Le texte formaté de l'intervalle.
+ */
+function formatConfidenceInterval(val, type, region, surface, isEuro = false, convFactor = 2.3, energyPrice = 0.2516) {
+    const tranche = getSurfaceTranche(surface);
+    
+    // Récupérer le RMSE pour la région et la tranche
+    let rmse = 2258.0; // fallback global médian
+    if (region && MODEL_RMSE[region] && MODEL_RMSE[region][tranche]) {
+        rmse = MODEL_RMSE[region][tranche];
+    } else if (MODEL_RMSE_BY_TRANCHE[tranche]) {
+        rmse = MODEL_RMSE_BY_TRANCHE[tranche];
+    }
+    
+    // Niveau de confiance à 90% -> z = 1.645
+    const z = 1.645;
+    let delta = 0;
+    
+    if (type === 'm2') {
+        const s = Number(surface) || 70;
+        delta = (z * rmse) / s;
+    } else if (type === 'total_ep') {
+        delta = z * rmse;
+    } else if (type === 'total_ef') {
+        delta = (z * rmse) / (convFactor || 2.3);
+    } else if (type === 'euro') {
+        delta = ((z * rmse) / (convFactor || 2.3)) * (energyPrice || 0.2516);
+    } else {
+        delta = val * 0.15; // Fallback simple de sauvegarde
+    }
+    
+    const min = Math.max(0, Math.round(val - delta));
+    const max = Math.round(val + delta);
+    const suffix = isEuro ? ' €' : '';
+    
+    return `(Entre ${min.toLocaleString('fr-FR')} et ${max.toLocaleString('fr-FR')}${suffix})`;
+}
+
 // Export publics
 window.identifyCriticalPoints = identifyCriticalPoints;
 window.buildImprovedFeatures = buildImprovedFeatures;
 window.FEATURE_VALUE_LABELS = FEATURE_VALUE_LABELS;
+window.MODEL_RMSE = MODEL_RMSE;
+window.MODEL_RMSE_BY_TRANCHE = MODEL_RMSE_BY_TRANCHE;
+window.getSurfaceTranche = getSurfaceTranche;
+window.formatConfidenceInterval = formatConfidenceInterval;

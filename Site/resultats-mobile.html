@@ -525,11 +525,6 @@
 
         function getDpeGrade(v) { for (let l of dpeScaleRef) if (v <= l.max) return l; return dpeScaleRef[6]; }
 
-        const formatInterval = (v, isEuro = false) => {
-            const mn = Math.max(0, Math.round(v * 0.85)), mx = Math.round(v * 1.15), s = isEuro ? ' €' : '';
-            return `(Entre ${mn.toLocaleString('fr-FR')} et ${mx.toLocaleString('fr-FR')}${s})`;
-        };
-
         // ============================================
         // DPE SCALE RENDER
         // ============================================
@@ -692,6 +687,11 @@
                     surfaceUsed = Number(result.features_used.surface_habitable_logement) || surface;
                 }
 
+                // Helper intervalle de confiance dynamique basé sur le RMSE à 90%
+                const formatInterval = (val, type, isEuro = false) => {
+                    return formatConfidenceInterval(val, type, result.region, surfaceUsed, isEuro, convFactor, energyPrice);
+                };
+
                 const kwhEP_m2 = consoTheoEP / surfaceUsed;
 
                 console.log(`[Mobile] EP=${consoTheoEP.toFixed(0)}, EF=${consoTheoEF.toFixed(0)}, Surface=${surfaceUsed}, kWh/m²=${kwhEP_m2.toFixed(1)}`);
@@ -701,7 +701,7 @@
                 const consoFormatted = Math.round(consoTheoEP).toLocaleString('fr-FR');
                 document.getElementById('annualConsumption').innerHTML =
                     `${consoFormatted} <span class="text-xl">kWh EP/an</span>`;
-                document.getElementById('annualConsumptionInterval').textContent = formatInterval(consoTheoEP);
+                document.getElementById('annualConsumptionInterval').textContent = formatInterval(consoTheoEP, 'total_ep');
 
                 document.getElementById('elecFinalConso').textContent = `${Math.round(consoTheoEF).toLocaleString('fr-FR')} kWh EF/an`;
                 document.getElementById('surfaceUsed').textContent = `${Math.round(surfaceUsed)} m²`;
@@ -712,7 +712,7 @@
                 document.getElementById('currentGrade').textContent = heroGrade.grade;
                 document.getElementById('currentGrade').className = `text-4xl font-black ${dpeGradeColors[heroGrade.grade] || 'text-gray-500'}`;
                 document.getElementById('currentValue').textContent = `${Math.round(kwhEP_m2)} kWh/m²/an`;
-                document.getElementById('currentValueInterval').textContent = formatInterval(kwhEP_m2);
+                document.getElementById('currentValueInterval').textContent = formatInterval(kwhEP_m2, 'm2');
                 renderScale(kwhEP_m2);
 
                 // 5) ESTIMATION DE LA FACTURE (Calculée sur EF)
@@ -739,14 +739,14 @@
                 const formatNum = (v) => (!isNaN(v) && v > 0) ? Math.round(v).toLocaleString('fr-FR') : "--";
 
                 document.getElementById('consoTheo').textContent = formatNum(consoTheoEP);
-                document.getElementById('consoTheoInterval').textContent = (!isNaN(consoTheoEP) && consoTheoEP > 0) ? formatInterval(consoTheoEP) : "";
+                document.getElementById('consoTheoInterval').textContent = (!isNaN(consoTheoEP) && consoTheoEP > 0) ? formatInterval(consoTheoEP, 'total_ep') : "";
 
                 document.getElementById('consoReal').textContent = formatNum(consoRealEF);
-                document.getElementById('consoRealInterval').textContent = (!isNaN(consoRealEF) && consoRealEF > 0) ? formatInterval(consoRealEF) : "";
+                document.getElementById('consoRealInterval').textContent = (!isNaN(consoRealEF) && consoRealEF > 0) ? formatInterval(consoRealEF, 'total_ef') : "";
 
                 const cost = consoRealEF * energyPrice;
                 document.getElementById('costReal').textContent = formatNum(cost) + ' €';
-                document.getElementById('costRealInterval').textContent = (!isNaN(cost) && cost > 0) ? formatInterval(cost, true) : "";
+                document.getElementById('costRealInterval').textContent = (!isNaN(cost) && cost > 0) ? formatInterval(cost, 'euro', true) : "";
 
                 // 6) IMPACT CO2
                 document.getElementById('co2Value').textContent = Math.round(kwhEP_m2 * 0.15);
@@ -910,7 +910,7 @@
                 const savedEF = savedEP / convFactor;
                 const savedEuros = savedEF * energyPrice;
                 document.getElementById('savingsAmount').textContent = `${Math.round(savedEuros)} € par an`;
-                document.getElementById('savingsInterval').textContent = savedEuros > 0 ? formatInterval(savedEuros, true) : '';
+                document.getElementById('savingsInterval').textContent = savedEuros > 0 ? formatInterval(savedEuros, 'euro', true) : '';
 
                 console.log(`[Mobile Économie] EP: ${savedEP.toFixed(0)}, EF: ${savedEF.toFixed(0)}, Euros: ${savedEuros.toFixed(0)}`);
 
