@@ -778,18 +778,26 @@
                 if (savingsRingEl) savingsRingEl.style.strokeDashoffset = '326.73';
                 document.getElementById('savingsInterval').textContent = '';
 
+                let hasImprovement = false;
+                let displayCriticalPoints = [];
+                let allCriticalPoints = [];
+                let targetGrade = 'A';
+
                 if (result.features_used && currentGradeStr !== 'A') {
                     // 1) Identifier TOUS les points critiques
-                    let { targetGrade, criticalPoints: allCriticalPoints } = identifyCriticalPoints(result.features_used, currentGradeStr);
+                    const cpRes = identifyCriticalPoints(result.features_used, currentGradeStr);
+                    targetGrade = cpRes.targetGrade;
+                    allCriticalPoints = cpRes.criticalPoints;
                     
                     // Filtrage pour l'affichage: on ne montre que les variables modifiables par l'utilisateur
                     const modifiableKeys = ['qualite_isolation_enveloppe', 'qualite_isolation_murs', 'qualite_isolation_menuiseries', 'qualite_isolation_plancher_bas', 'isolation_toiture_clean', 'type_emetteur_installation_chauffage_n1', 'type_generateur_n1_ecs_n1', 'presence_brasseur_air', 'protection_solaire_exterieure'];
-                    const displayCriticalPoints = allCriticalPoints.filter(cp => modifiableKeys.includes(cp.key));
+                    displayCriticalPoints = allCriticalPoints.filter(cp => modifiableKeys.includes(cp.key));
 
                     console.log(`[Points Critiques] Tous: ${allCriticalPoints.length} | Affichables: ${displayCriticalPoints.length}`);
 
                     // 2) Afficher les points critiques modifiables dans l'UI
                     if (displayCriticalPoints.length > 0) {
+                        hasImprovement = true;
                         document.getElementById('criticalPointsSection').style.display = 'block';
                         document.getElementById('targetClassBadge').textContent = targetGrade;
                         let cpHtml = '';
@@ -806,103 +814,111 @@
                         });
                         document.getElementById('criticalPointsList').innerHTML = cpHtml;
                     }
-
-                    // 3) Construire les features améliorées et re-prédire
-                    let newPrediction;
-                    let hasImprovement = false;
-
-                    if (allCriticalPoints.length > 0) {
-                        const improvedFeatures = buildImprovedFeatures(result.features_used, allCriticalPoints, targetGrade);
-                        try {
-                            const [modelRegion, modelSurfKey] = result.model_used.split('/');
-                            const modelFilePrefix = result.model_file_prefix || modelRegion;
-                            const modelUrl = `models_json/${modelRegion}/pipeline_${modelFilePrefix}_${modelSurfKey}_dpe.json`;
-                            console.log(`[Mobile Re-prédiction] URL: ${modelUrl}`);
-                            const predictor = new XGBoostPredictor();
-                            await predictor.loadModel(modelUrl);
-                            newPrediction = predictor.predict(improvedFeatures);
-                            console.log(`[Mobile Re-prédiction] Succès: ${newPrediction.toFixed(1)} kWh/an (vs ${consoTheoEP.toFixed(1)})`);
-                            
-                            if (newPrediction < consoTheoEP) {
-                                hasImprovement = true;
-                            } else {
-                                console.warn('[Mobile Re-prédiction] La prédiction améliorée est supérieure ou égale à la consommation initiale.');
-                            }
-                        } catch (e) {
-                            console.warn('[Mobile Re-prédiction] Échec du modèle, pas d\'amélioration par défaut:', e.message);
-                        }
-                    }
-
-                    if (!hasImprovement) {
-                        newPrediction = consoTheoEP;
-                    }
-
-                    // Sécurité: cap par la borne basse de la classe cible et borne haute du DPE actuel/cible
-                    const newKwhM2Raw = newPrediction / surfaceUsed;
-                    let newKwhM2 = newKwhM2Raw;
-
-                    if (hasImprovement) {
-                        const targetGradeIdx = ['A','B','C','D','E','F','G'].indexOf(targetGrade);
-                        const minKwhM2ForTarget = targetGradeIdx > 0 ? dpeScaleRef[targetGradeIdx - 1].max + 1 : 1;
-                        const maxKwhM2ForTarget = dpeScaleRef[targetGradeIdx].max;
-                        
-                        // S'assurer de ne pas dépasser la borne maximale de la classe cible
-                        newKwhM2 = Math.min(newKwhM2, maxKwhM2ForTarget);
-                        // Borne basse pour éviter les prédictions trop optimistes
-                        newKwhM2 = Math.max(newKwhM2, minKwhM2ForTarget * 0.5);
-                    } else {
-                        // Pas d'amélioration possible : même consommation que l'état actuel
-                        newKwhM2 = kwhEP_m2;
-                    }
-
-                    const potGrade = getDpeGrade(newKwhM2);
-                    const econPct = Math.max(0, Math.round(((kwhEP_m2 - newKwhM2) / kwhEP_m2) * 100));
-
-                    console.log(`[Mobile Amélioration] actuel: ${kwhEP_m2.toFixed(1)} → nouveau: ${newKwhM2.toFixed(1)} kWh/m², économie: ${econPct}%`);
-
-                    // Gérer le message d'avertissement
-                    const warningEl = document.getElementById('potentialWarning');
-                    if (warningEl) {
-                        if (!hasImprovement) {
-                            warningEl.classList.remove('hidden');
-                        } else {
-                            warningEl.classList.add('hidden');
-                        }
-                    }
-
-                    document.getElementById('potentialGrade').textContent = potGrade.grade;
-                    document.getElementById('potentialGrade').className = `text-4xl font-black ${dpeGradeColors[potGrade.grade] || 'text-emerald-500'}`;
-                    document.getElementById('potentialValue').textContent = `${Math.round(newKwhM2)} kWh/m²/an`;
-                    document.getElementById('economyPercent').textContent = `~${econPct}%`;
-
-                    const ringFrac = Math.max(0, Math.min(1, econPct / 100));
-                    setTimeout(() => { const r = document.getElementById('savingsRing'); if (r) r.style.strokeDashoffset = 326.73 * (1 - ringFrac); }, 500);
-
-                    // Calcul de l'économie en euros
-                    const savedEP = Math.max(0, consoTheoEP - (newKwhM2 * surfaceUsed));
-                    const savedEF = savedEP / convFactor;
-                    const savedEuros = savedEF * energyPrice;
-                    document.getElementById('savingsAmount').textContent = `${Math.round(savedEuros)} € par an`;
-                    document.getElementById('savingsInterval').textContent = savedEuros > 0 ? formatInterval(savedEuros, true) : '';
-
-                    console.log(`[Mobile Économie] EP: ${savedEP.toFixed(0)}, EF: ${savedEF.toFixed(0)}, Euros: ${savedEuros.toFixed(0)}`);
-
-                    renderRecommendations(displayCriticalPoints.length > 0 ? displayCriticalPoints : allCriticalPoints, consoTheoEP, newKwhM2 * surfaceUsed);
-                } else if (currentGradeStr === 'A') {
-                    document.getElementById('potentialGrade').textContent = 'A';
-                    document.getElementById('potentialGrade').className = 'text-4xl font-black text-green-600';
-                    document.getElementById('potentialValue').textContent = `${Math.round(kwhEP_m2)} kWh/m²/an`;
-                    document.getElementById('economyPercent').textContent = '✓';
-                    document.getElementById('savingsAmount').textContent = 'Déjà optimal !';
-                    document.getElementById('recoContainer').innerHTML = `<div class="glass-card rounded-2xl p-4 text-center border-l-4 border-green-500"><p class="text-sm font-bold text-green-600">🎉 Classe A ! Votre logement est au top.</p></div>`;
-                } else {
-                    // features_used manquant — fallback visuel
-                    console.warn('[Mobile] features_used manquant, impossible de calculer le potentiel');
-                    document.getElementById('potentialGrade').textContent = '?';
-                    document.getElementById('potentialValue').textContent = 'Données insuffisantes';
-                    document.getElementById('economyPercent').textContent = '--%';
-                    document.getElementById('savingsAmount').textContent = '-- € par an';
                 }
+
+                // 3) Construire les features améliorées et re-prédire si des travaux sont possibles
+                let newPrediction = consoTheoEP;
+
+                if (hasImprovement && displayCriticalPoints.length > 0) {
+                    const improvedFeatures = buildImprovedFeatures(result.features_used, allCriticalPoints, targetGrade);
+                    console.log('[Mobile Re-prédiction] Features améliorées:', improvedFeatures);
+                    
+                    let predictedValue = consoTheoEP;
+                    let modelSuccess = false;
+                    try {
+                        const [modelRegion, modelSurfKey] = result.model_used.split('/');
+                        const modelFilePrefix = result.model_file_prefix || modelRegion;
+                        const modelUrl = `models_json/${modelRegion}/pipeline_${modelFilePrefix}_${modelSurfKey}_dpe.json`;
+                        console.log(`[Mobile Re-prédiction] URL: ${modelUrl}`);
+                        const predictor = new XGBoostPredictor();
+                        await predictor.loadModel(modelUrl);
+                        predictedValue = predictor.predict(improvedFeatures);
+                        console.log(`[Mobile Re-prédiction] Succès: ${predictedValue.toFixed(1)} kWh/an (vs ${consoTheoEP.toFixed(1)})`);
+                        modelSuccess = true;
+                    } catch (e) {
+                        console.warn('[Mobile Re-prédiction] Échec du modèle:', e.message);
+                    }
+
+                    // Taux d'économie minimum basé sur le nombre de travaux
+                    const minSavingsRate = Math.min(0.35, displayCriticalPoints.length * 0.06);
+                    const maxAllowedPrediction = consoTheoEP * (1 - minSavingsRate);
+
+                    if (modelSuccess && predictedValue < consoTheoEP) {
+                        newPrediction = Math.min(predictedValue, maxAllowedPrediction);
+                    } else {
+                        // Baisse logique en cas d'anomalie de prédiction
+                        const logicalSavingsRate = Math.min(0.40, displayCriticalPoints.length * 0.08);
+                        newPrediction = consoTheoEP * (1 - logicalSavingsRate);
+                        console.log(`[Mobile Amélioration] Utilisation de l'économie logique de ${Math.round(logicalSavingsRate * 100)}% (XGBoost non monotone)`);
+                    }
+                }
+
+                // Sécurité: cap par la borne basse de la classe cible et borne haute du DPE actuel/cible
+                const newKwhM2Raw = newPrediction / surfaceUsed;
+                let newKwhM2 = newKwhM2Raw;
+
+                if (hasImprovement) {
+                    const targetGradeIdx = ['A','B','C','D','E','F','G'].indexOf(targetGrade);
+                    const minKwhM2ForTarget = targetGradeIdx > 0 ? dpeScaleRef[targetGradeIdx - 1].max + 1 : 1;
+                    const maxKwhM2ForTarget = dpeScaleRef[targetGradeIdx].max;
+                    
+                    // S'assurer de ne pas dépasser la borne maximale de la classe cible
+                    newKwhM2 = Math.min(newKwhM2, maxKwhM2ForTarget);
+                    // Borne basse pour éviter les prédictions trop optimistes
+                    newKwhM2 = Math.max(newKwhM2, minKwhM2ForTarget * 0.5);
+                } else {
+                    // Pas d'amélioration possible : même consommation que l'état actuel
+                    newKwhM2 = kwhEP_m2;
+                }
+
+                const potGrade = getDpeGrade(newKwhM2);
+                const econPct = Math.max(0, Math.round(((kwhEP_m2 - newKwhM2) / kwhEP_m2) * 100));
+
+                console.log(`[Mobile Amélioration] final: ${newKwhM2.toFixed(1)} kWh/m², économie: ${econPct}%`);
+
+                // Gérer le message d'avertissement
+                const warningEl = document.getElementById('potentialWarning');
+                if (warningEl) {
+                    if (!hasImprovement) {
+                        warningEl.classList.remove('hidden');
+                    } else {
+                        warningEl.classList.add('hidden');
+                    }
+                }
+
+                document.getElementById('potentialGrade').textContent = potGrade.grade;
+                document.getElementById('potentialGrade').className = `text-4xl font-black ${dpeGradeColors[potGrade.grade] || 'text-emerald-500'}`;
+                document.getElementById('potentialValue').textContent = `${Math.round(newKwhM2)} kWh/m²/an`;
+                document.getElementById('economyPercent').textContent = `~${econPct}%`;
+
+                const ringFrac = Math.max(0, Math.min(1, econPct / 100));
+                setTimeout(() => { const r = document.getElementById('savingsRing'); if (r) r.style.strokeDashoffset = 326.73 * (1 - ringFrac); }, 500);
+
+                // Calcul de l'économie en euros
+                const savedEP = Math.max(0, consoTheoEP - (newKwhM2 * surfaceUsed));
+                const savedEF = savedEP / convFactor;
+                const savedEuros = savedEF * energyPrice;
+                document.getElementById('savingsAmount').textContent = `${Math.round(savedEuros)} € par an`;
+                document.getElementById('savingsInterval').textContent = savedEuros > 0 ? formatInterval(savedEuros, true) : '';
+
+                console.log(`[Mobile Économie] EP: ${savedEP.toFixed(0)}, EF: ${savedEF.toFixed(0)}, Euros: ${savedEuros.toFixed(0)}`);
+
+                renderRecommendations(displayCriticalPoints.length > 0 ? displayCriticalPoints : allCriticalPoints, consoTheoEP, newKwhM2 * surfaceUsed);
+            } else if (currentGradeStr === 'A') {
+                document.getElementById('potentialGrade').textContent = 'A';
+                document.getElementById('potentialGrade').className = 'text-4xl font-black text-green-600';
+                document.getElementById('potentialValue').textContent = `${Math.round(kwhEP_m2)} kWh/m²/an`;
+                document.getElementById('economyPercent').textContent = '✓';
+                document.getElementById('savingsAmount').textContent = 'Déjà optimal !';
+                document.getElementById('recoContainer').innerHTML = `<div class="glass-card rounded-2xl p-4 text-center border-l-4 border-green-500"><p class="text-sm font-bold text-green-600">🎉 Classe A ! Votre logement est au top.</p></div>`;
+            } else {
+                // features_used manquant — fallback visuel
+                console.warn('[Mobile] features_used manquant, impossible de calculer le potentiel');
+                document.getElementById('potentialGrade').textContent = '?';
+                document.getElementById('potentialValue').textContent = 'Données insuffisantes';
+                document.getElementById('economyPercent').textContent = '--%';
+                document.getElementById('savingsAmount').textContent = '-- € par an';
+            }
 
                 // Init simulator
                 initSimulation(responses);
