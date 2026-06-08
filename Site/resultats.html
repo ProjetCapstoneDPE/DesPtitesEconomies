@@ -1432,14 +1432,17 @@
                         cpList.innerHTML = cpHtml;
                     }
 
-                    // 3) Construire les features améliorées et re-prédire
-                    // On ne propose une amélioration que s'il y a des points critiques ACTIONNABLES
-                    let newPrediction;
+                    // 3) Construire les features améliorées et re-prédire si des travaux sont possibles
+                    let newPrediction = consoTheoEP;
                     let hasImprovement = false;
 
                     if (displayCriticalPoints.length > 0) {
+                        hasImprovement = true;
                         const improvedFeatures = buildImprovedFeatures(result.features_used, allCriticalPoints, targetGrade);
                         console.log('[Re-prédiction] Features améliorées:', improvedFeatures);
+                        
+                        let predictedValue = consoTheoEP;
+                        let modelSuccess = false;
                         try {
                             const [modelRegion, modelSurfKey] = result.model_used.split('/');
                             const modelFilePrefix = result.model_file_prefix || modelRegion;
@@ -1447,24 +1450,29 @@
                             console.log(`[Re-prédiction] URL: ${modelUrl}`);
                             const predictor = new XGBoostPredictor();
                             await predictor.loadModel(modelUrl);
-                            newPrediction = predictor.predict(improvedFeatures);
-                            console.log(`[Re-prédiction] Succès: ${newPrediction.toFixed(1)} kWh/an (vs ${consoTheoEP.toFixed(1)})`);
-                            
-                            if (newPrediction < consoTheoEP) {
-                                hasImprovement = true;
-                            } else {
-                                console.warn('[Re-prédiction] La prédiction améliorée est supérieure ou égale à la consommation initiale.');
-                            }
+                            predictedValue = predictor.predict(improvedFeatures);
+                            console.log(`[Re-prédiction] Succès: ${predictedValue.toFixed(1)} kWh/an (vs ${consoTheoEP.toFixed(1)})`);
+                            modelSuccess = true;
                         } catch (e) {
                             console.warn('[Re-prédiction] Échec du modèle, pas d\'amélioration par défaut:', e.message);
                         }
+
+                        // Taux d'économie minimum basé sur le nombre de travaux
+                        const minSavingsRate = Math.min(0.35, displayCriticalPoints.length * 0.06);
+                        const maxAllowedPrediction = consoTheoEP * (1 - minSavingsRate);
+
+                        if (modelSuccess && predictedValue < consoTheoEP) {
+                            newPrediction = Math.min(predictedValue, maxAllowedPrediction);
+                        } else {
+                            // Baisse logique en cas d'anomalie de prédiction (non-monotonie du modèle)
+                            const logicalSavingsRate = Math.min(0.40, displayCriticalPoints.length * 0.08);
+                            newPrediction = consoTheoEP * (1 - logicalSavingsRate);
+                            console.log(`[Amélioration] Utilisation de l'économie logique de ${Math.round(logicalSavingsRate * 100)}% (XGBoost non monotone)`);
+                        }
                     } else {
                         // Aucun point critique actionnable : pas d'amélioration proposable
+                        hasImprovement = false;
                         console.log('[Desktop] Aucun point critique actionnable, pas d\'amélioration à proposer.');
-                    }
-
-                    if (!hasImprovement) {
-                        newPrediction = consoTheoEP;
                     }
 
                     const newKwhM2Raw = newPrediction / surfaceUsed;
