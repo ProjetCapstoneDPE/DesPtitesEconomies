@@ -1188,6 +1188,12 @@ function formatConfidenceInterval(val, type, region, surface, isEuro = false, co
         delta = val * 0.15; // Fallback simple de sauvegarde
     }
     
+    // Plafonner la marge d'erreur à 25% de la valeur estimée pour éviter des intervalles
+    // démesurés sur les logements à très basse consommation (ex: Classe A/B)
+    if (type !== 'fallback') {
+        delta = Math.min(delta, val * 0.25);
+    }
+    
     const min = Math.max(0, Math.round(val - delta));
     const max = Math.round(val + delta);
     const suffix = isEuro ? ' €' : '';
