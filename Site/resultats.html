@@ -1377,17 +1377,23 @@
                     let { targetGrade, criticalPoints: allCriticalPoints } = identifyCriticalPoints(result.features_used, currentGrade);
 
                     // Filtrage pour l'affichage: on ne montre que les variables modifiables par l'utilisateur
-                    const modifiableKeys = [
-                        'qualite_isolation_enveloppe',
-                        'qualite_isolation_murs',
+                    // Murs, plancher et enveloppe sont modifiables pour tous les types de bâtiment
+                    // La toiture n'est modifiable que pour les maisons (impossible d'agir sur le toit en appartement)
+                    let modifiableKeys = [
                         'qualite_isolation_menuiseries',
-                        'qualite_isolation_plancher_bas',
-                        'isolation_toiture_clean',
                         'type_emetteur_installation_chauffage_n1',
                         'type_generateur_n1_ecs_n1',
                         'presence_brasseur_air',
-                        'protection_solaire_exterieure'
+                        'protection_solaire_exterieure',
+                        'qualite_isolation_enveloppe',
+                        'qualite_isolation_murs',
+                        'qualite_isolation_plancher_bas'
                     ];
+                    
+                    // Seule la toiture est réservée aux maisons (impossible d'agir sur le toit en appartement)
+                    if (result.features_used && result.features_used.type_batiment === 'maison') {
+                        modifiableKeys.push('isolation_toiture_clean');
+                    }
                     const displayCriticalPoints = allCriticalPoints.filter(cp => modifiableKeys.includes(cp.key));
 
                     console.log(`[Points Critiques] Classe actuelle: ${currentGrade} → Cible: ${targetGrade}`);
@@ -1430,10 +1436,11 @@
                     }
 
                     // 3) Construire les features améliorées et re-prédire
+                    // On ne propose une amélioration que s'il y a des points critiques ACTIONNABLES
                     let newPrediction;
                     let hasImprovement = false;
 
-                    if (allCriticalPoints.length > 0) {
+                    if (displayCriticalPoints.length > 0) {
                         const improvedFeatures = buildImprovedFeatures(result.features_used, allCriticalPoints, targetGrade);
                         console.log('[Re-prédiction] Features améliorées:', improvedFeatures);
                         try {
@@ -1454,6 +1461,9 @@
                         } catch (e) {
                             console.warn('[Re-prédiction] Échec du modèle, pas d\'amélioration par défaut:', e.message);
                         }
+                    } else {
+                        // Aucun point critique actionnable : pas d'amélioration proposable
+                        console.log('[Desktop] Aucun point critique actionnable, pas d\'amélioration à proposer.');
                     }
 
                     if (!hasImprovement) {
@@ -1599,6 +1609,15 @@
             setSelectValue('simSoleil', getVal('Protection solaire'));
             setSelectValue('simBrasseur', getVal('Ventilateur de plafond'));
             setSelectValue('simEnveloppe', getVal('Qualité isolation globale'));
+
+            // Masquer uniquement l'isolation toiture pour un appartement dans le simulateur
+            // Murs, plancher et enveloppe restent modifiables même en appartement
+            const typeBat = getVal('Type de bâtiment');
+            const isAppart = (typeBat === 'Appartement' || typeBat === 'immeuble' || typeBat === 'appartement');
+            const toitureSelect = document.getElementById('simIsolationToiture');
+            if (toitureSelect && toitureSelect.parentElement) {
+                toitureSelect.parentElement.style.display = isAppart ? 'none' : 'block';
+            }
         }
 
         async function runSimulation(event) {
@@ -1707,9 +1726,9 @@
                 priorityColor: 'bg-red-50 text-red-600 border-red-200',
             },
             ubat_w_par_m2_k: {
-                title: 'Performance thermique globale',
-                icon: 'thermostat',
-                desc: 'Le coefficient Ubat est trop élevé. Combiné aux améliorations d\'isolation, un meilleur Ubat réduirait significativement la consommation.',
+                title: 'Protection thermique (volets / stores)',
+                icon: 'roller_shades',
+                desc: 'L\'installation de volets roulants ou de stores extérieurs améliorerait significativement la performance thermique de votre logement en limitant les déperditions de chaleur en hiver et les surchauffes en été.',
                 colors: { bg: 'from-orange-500 to-red-500', border: 'border-orange-500' },
                 priority: 'Priorité haute',
                 priorityColor: 'bg-red-50 text-red-600 border-red-200',

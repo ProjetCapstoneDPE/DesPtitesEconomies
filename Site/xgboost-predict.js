@@ -488,17 +488,27 @@ class XGBoostPredictor {
         const oheVec = [];
         feature_order.categorical.forEach((col, i) => {
             const cats = ohe_categories[String(i)];
-            const val = String(features[col] || '');
+            const val = (features[col] !== undefined && features[col] !== null) ? String(features[col]) : '';
             // OneHot: un 1.0 si match, sinon NaN (valeur manquante pour XGBoost)
             // C'est CRITIQUE : XGBoost traite les 0 structurels du sparse matrix comme manquants
             cats.forEach(cat => {
                 const catNormalized = cat.toLowerCase().trim();
                 const valNormalized = val.toLowerCase().trim();
-                if (valNormalized === catNormalized) {
+                
+                let isMatch = false;
+                const valFloat = parseFloat(valNormalized);
+                const catFloat = parseFloat(catNormalized);
+                if (!isNaN(valFloat) && !isNaN(catFloat)) {
+                    isMatch = (valFloat === catFloat);
+                } else {
+                    isMatch = (valNormalized === catNormalized);
+                }
+
+                if (isMatch) {
                     oheVec.push(1.0);
                     console.log(`[XGBoost OHE] Match: ${col} = ${cat}`);
                 } else {
-                    oheVec.push(0.0);
+                    oheVec.push(NaN);
                 }
             });
         });

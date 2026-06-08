@@ -566,6 +566,7 @@
             qualite_isolation_menuiseries: { title: 'Remplacement des fenêtres', icon: 'window', desc: 'Installer du double ou triple vitrage réduirait les pertes par les fenêtres.', colors: { bg: 'from-amber-500 to-orange-500', border: 'border-amber-500' }, priority: 'Priorité moyenne', priorityColor: 'bg-amber-50 text-amber-700 border-amber-200' },
             qualite_isolation_plancher_bas: { title: 'Isolation du plancher bas', icon: 'layers', desc: 'Isoler le plancher bas peut réduire les pertes par le sol de 7 à 10%.', colors: { bg: 'from-amber-500 to-orange-500', border: 'border-amber-500' }, priority: 'Priorité moyenne', priorityColor: 'bg-amber-50 text-amber-700 border-amber-200' },
             isolation_toiture_clean: { title: 'Isolation de la toiture', icon: 'roofing', desc: "La toiture est la 1ère source de déperdition (jusqu'à 30%).", colors: { bg: 'from-red-500 to-rose-500', border: 'border-red-500' }, priority: 'Priorité haute', priorityColor: 'bg-red-50 text-red-600 border-red-200' },
+            ubat_w_par_m2_k: { title: 'Protection thermique (volets / stores)', icon: 'roller_shades', desc: "L'installation de volets roulants ou de stores extérieurs améliorerait significativement la performance thermique en limitant les déperditions en hiver et les surchauffes en été.", colors: { bg: 'from-orange-500 to-red-500', border: 'border-orange-500' }, priority: 'Priorité haute', priorityColor: 'bg-red-50 text-red-600 border-red-200' },
             type_emetteur_installation_chauffage_n1: { title: 'Système de chauffage', icon: 'local_fire_department', desc: 'Moderniser votre chauffage (PAC, condensation) améliorerait le rendement.', colors: { bg: 'from-blue-500 to-indigo-500', border: 'border-blue-500' }, priority: 'Priorité moyenne', priorityColor: 'bg-blue-50 text-blue-600 border-blue-200' },
             type_generateur_n1_ecs_n1: { title: "Production d'eau chaude", icon: 'water_drop', desc: 'Un chauffe-eau thermodynamique serait plus efficace.', colors: { bg: 'from-cyan-500 to-blue-500', border: 'border-cyan-500' }, priority: 'Priorité basse', priorityColor: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
             protection_solaire_exterieure: { title: 'Protection solaire', icon: 'wb_sunny', desc: "Volets ou stores extérieurs réduiraient les surchauffes estivales.", colors: { bg: 'from-yellow-500 to-amber-500', border: 'border-yellow-500' }, priority: 'Priorité basse', priorityColor: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
@@ -789,8 +790,14 @@
                     targetGrade = cpRes.targetGrade;
                     allCriticalPoints = cpRes.criticalPoints;
                     
-                    // Filtrage pour l'affichage: on ne montre que les variables modifiables par l'utilisateur
-                    const modifiableKeys = ['qualite_isolation_enveloppe', 'qualite_isolation_murs', 'qualite_isolation_menuiseries', 'qualite_isolation_plancher_bas', 'isolation_toiture_clean', 'type_emetteur_installation_chauffage_n1', 'type_generateur_n1_ecs_n1', 'presence_brasseur_air', 'protection_solaire_exterieure'];
+                    // Filtrage pour l'affichage: variables modifiables par l'utilisateur
+                    // Murs, plancher et enveloppe sont modifiables pour tous les types de bâtiment
+                    // La toiture n'est modifiable que pour les maisons (impossible d'agir sur le toit en appartement)
+                    let modifiableKeys = ['qualite_isolation_menuiseries', 'type_emetteur_installation_chauffage_n1', 'type_generateur_n1_ecs_n1', 'presence_brasseur_air', 'protection_solaire_exterieure', 'qualite_isolation_enveloppe', 'qualite_isolation_murs', 'qualite_isolation_plancher_bas'];
+                    // Seule la toiture est réservée aux maisons
+                    if (result.features_used && result.features_used.type_batiment === 'maison') {
+                        modifiableKeys.push('isolation_toiture_clean');
+                    }
                     displayCriticalPoints = allCriticalPoints.filter(cp => modifiableKeys.includes(cp.key));
 
                     console.log(`[Points Critiques] Tous: ${allCriticalPoints.length} | Affichables: ${displayCriticalPoints.length}`);
@@ -851,6 +858,10 @@
                         newPrediction = consoTheoEP * (1 - logicalSavingsRate);
                         console.log(`[Mobile Amélioration] Utilisation de l'économie logique de ${Math.round(logicalSavingsRate * 100)}% (XGBoost non monotone)`);
                     }
+                } else if (displayCriticalPoints.length === 0) {
+                    // Aucun point critique actionnable : pas d'amélioration proposable
+                    hasImprovement = false;
+                    console.log('[Mobile] Aucun point critique actionnable, pas d\'amélioration à proposer.');
                 }
 
                 // Sécurité: cap par la borne basse de la classe cible et borne haute du DPE actuel/cible
@@ -941,6 +952,15 @@
             setVal('simSoleil', getVal('Protection solaire'));
             setVal('simBrasseur', getVal('Ventilateur de plafond'));
             setVal('simEnveloppe', getVal('Qualité isolation globale'));
+
+            // Masquer uniquement l'isolation toiture pour un appartement dans le simulateur mobile
+            // Murs, plancher et enveloppe restent modifiables même en appartement
+            const typeBat = getVal('Type de bâtiment');
+            const isAppart = (typeBat === 'Appartement' || typeBat === 'immeuble' || typeBat === 'appartement');
+            const toitureSelect = document.getElementById('simIsolationToiture');
+            if (toitureSelect && toitureSelect.parentElement) {
+                toitureSelect.parentElement.style.display = isAppart ? 'none' : 'block';
+            }
         }
 
         async function runSimulation(event) {
