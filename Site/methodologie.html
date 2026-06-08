@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Notre méthodologie | Des P'tites Économies - Projet DPE</title>
+    <meta name="description"
+        content="Découvrez comment Watty estime votre DPE : données sources, modèles XGBoost, précision statistique, calcul des intervalles de confiance et limites." />
+    <link rel="icon" type="image/png" href="Images/Image_2.png" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+    <script>if (window.innerWidth <= 900) window.location.href = 'methodologie-mobile.html';</script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#4F46E5",
+                        "background-light": "#FFFFFF",
+                        "background-dark": "#121212",
+                    },
+                    fontFamily: {
+                        display: ["Poppins", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "1rem",
+                    },
+                },
+            },
+        };
+    </script>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        * {
+            font-family: 'Poppins', sans-serif;
+        }
+
+        @keyframes fade-up {
+            from {
+                opacity: 0;
+                transform: translateY(24px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-up {
+            opacity: 0;
+            animation: fade-up .7s ease-out forwards;
+        }
+
+        .delay-100 {
+            animation-delay: .1s;
+        }
+
+        .delay-200 {
+            animation-delay: .2s;
+        }
+
+        .delay-300 {
+            animation-delay: .3s;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.70);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.60);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #EC4899 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .card-lift {
+            transition: transform .3s ease, box-shadow .3s ease;
+        }
+
+        .card-lift:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 40px -12px rgba(79, 70, 229, 0.15);
+        }
+    </style>
+</head>
+
+<body class="bg-gradient-to-br from-slate-50 via-blue-50/50 to-indigo-100/30 min-h-screen text-gray-800 flex flex-col">
+
+    <!-- ===== HEADER ===== -->
+    <header
+        class="flex justify-between items-center py-3 px-4 sm:px-6 sticky top-0 z-50 bg-white/60 backdrop-blur-xl border-b border-white/40 shadow-sm">
+        <div class="flex items-center gap-3">
+            <a href="index.html"
+                class="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-primary border-2 border-primary/30 rounded-full hover:bg-primary/10 hover:border-primary transition-all bg-white/50">
+                <span class="material-icons text-primary" style="font-size:18px">home</span>
+                <span>Accueil</span>
+            </a>
+            <a href="estimation.html"
+                class="px-4 py-2 text-sm font-semibold text-primary border-2 border-primary/30 rounded-full hover:bg-primary/10 hover:border-primary transition-all bg-white/50">
+                Estimez
+            </a>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="bons-gestes.html"
+                class="px-4 py-2 text-sm font-semibold text-primary border-2 border-primary/30 rounded-full hover:bg-primary/10 hover:border-primary transition-all bg-white/50">
+                Les bons gestes !
+            </a>
+            <a href="methodologie.html"
+                class="px-4 py-2 text-sm font-semibold text-primary border-2 border-primary/30 rounded-full hover:bg-primary/10 hover:border-primary transition-all bg-indigo-50 border-primary">
+                Méthodologie
+            </a>
+            <a href="a-propos.html"
+                class="px-4 py-2 text-sm font-semibold text-primary border-2 border-primary/30 rounded-full hover:bg-primary/10 hover:border-primary transition-all bg-white/50">
+                Qui sommes-nous ?
+            </a>
+        </div>
+    </header>
+
+    <div class="flex-grow">
+        <!-- ===== HERO SECTION ===== -->
+        <section class="py-16 text-center relative overflow-hidden">
+            <div class="absolute top-10 left-10 w-72 h-72 bg-indigo-200/30 rounded-full blur-3xl"></div>
+            <div class="absolute bottom-5 right-10 w-96 h-96 bg-purple-200/20 rounded-full blur-3xl"></div>
+
+            <div class="max-w-4xl mx-auto px-4 sm:px-6 relative z-10 animate-fade-up">
+                <h1 class="text-4xl sm:text-5xl font-extrabold mb-4 leading-tight">
+                    <span class="gradient-text">Notre méthodologie</span>
+                </h1>
+                <p class="text-lg text-gray-500 max-w-2xl mx-auto leading-relaxed">
+                    Comment Watty estime votre DPE — données sources, fonctionnement du modèle, précision statistique et limites connues.
+                </p>
+            </div>
+        </section>
+
+        <!-- ===== METHODOLOGY CONTENT ===== -->
+        <section class="py-8 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
+            
+            <!-- 1. D'où viennent nos données -->
+            <div class="glass-card rounded-3xl p-8 mb-8 shadow-md animate-fade-up">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <span class="material-icons text-indigo-600">database</span>
+                    1. D'où viennent nos données
+                </h2>
+                <p class="text-sm text-gray-600 leading-relaxed mb-6">
+                    Nous utilisons exclusivement des données ouvertes et publiques (Open Data français). Aucun achat de données n'a été effectué, et aucune donnée personnelle identifiante n'entre dans le modèle prédictif.
+                </p>
+                <div class="overflow-x-auto rounded-2xl border border-gray-150 shadow-sm bg-white/50 mb-6">
+                    <table class="min-w-full divide-y divide-gray-200 text-left text-sm">
+                        <thead class="bg-gray-50 text-gray-700 font-semibold">
+                            <tr>
+                                <th class="px-6 py-3.5">Source</th>
+                                <th class="px-6 py-3.5">Ce qu'on en tire</th>
+                                <th class="px-6 py-3.5">Provenance</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-150 text-gray-650">
+                            <tr>
+                                <td class="px-6 py-4 font-bold text-indigo-700">Consommation</td>
+                                <td class="px-6 py-4">Consommation électrique réelle</td>
+                                <td class="px-6 py-4">Enedis (Consommation d'électricité annuelle résidentielle par adresse)</td>
+                            </tr>
+                            <tr class="bg-gray-50/50">
+                                <td class="px-6 py-4 font-bold text-indigo-700">Logement</td>
+                                <td class="px-6 py-4">Surface, type, année de construction, isolation, chauffage...</td>
+                                <td class="px-6 py-4">ADEME (Base des DPE Logements existants depuis juillet 2021)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="grid grid-cols-2 gap-4 text-center">
+                    <div class="bg-indigo-50/50 rounded-xl p-4 border border-indigo-100/50">
+                        <p class="text-2xl font-extrabold text-primary">15 millions</p>
+                        <p class="text-xs text-gray-500 mt-1">de logements analysés pour l'entraînement</p>
+                    </div>
+                    <div class="bg-purple-50/50 rounded-xl p-4 border border-purple-100/50">
+                        <p class="text-2xl font-extrabold text-purple-700">France Entière</p>
+                        <p class="text-xs text-gray-500 mt-1">Couverture géographique (Métropole)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Comment fonctionne le modèle -->
+            <div class="glass-card rounded-3xl p-8 mb-8 shadow-md animate-fade-up delay-100">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <span class="material-icons text-indigo-600">psychology</span>
+                    2. Comment fonctionne le modèle
+                </h2>
+                <p class="text-sm text-gray-600 leading-relaxed mb-4">
+                    À partir de milliers de logements réels observés, Watty apprend le lien logique reliant les caractéristiques structurelles d'une habitation à sa consommation énergétique. Il applique ensuite ces enseignements pour évaluer votre propre logement.
+                </p>
+                <div class="bg-white/50 rounded-2xl p-6 border border-gray-150 shadow-sm mb-6">
+                    <h3 class="font-bold text-indigo-900 mb-2">Notre moteur : XGBoost</h3>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        Nous nous appuyons sur <strong>XGBoost (eXtreme Gradient Boosting)</strong>, un algorithme d'apprentissage supervisé par arbres de décision successifs. Au lieu de faire une simple moyenne, l'algorithme construit une multitude de petits arbres séquentiels, chacun s'efforçant de corriger les erreurs résiduelles de l'arbre précédent. 
+                    </p>
+                    <p class="text-sm text-gray-600 leading-relaxed mt-2">
+                        <strong>Pourquoi XGBoost ?</strong> Il gère à la perfection les données structurées et tabulaires complexes (mélangeant des données numériques comme la surface et catégorielles comme le type de chauffage), capture les interactions non linéaires entre variables (ex: l'impact d'une isolation moyenne combinée à une altitude élevée), et présente un format JSON ultra-léger parfaitement adapté à une exécution locale immédiate dans le navigateur de l'utilisateur.
+                    </p>
+                </div>
+
+                <h3 class="font-bold text-gray-800 mb-3">Les variables prises en compte (22 features)</h3>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs text-gray-600 bg-white/40 p-4 rounded-2xl border border-gray-100">
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Département</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Surface habitable</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Type de logement</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Période de construction / Rénovation</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Logement traversant</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Qualité isolation enveloppe</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Isolation des murs</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Isolation de la toiture</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Isolation du sol</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Qualité des fenêtres</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Émetteur de chauffage</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Production eau chaude</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Type de chauffe-eau</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Ventilateur de plafond</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Protection solaire</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Classe d'altitude</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Hauteur sous plafond</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Température de chauffe</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Nombre d'occupants</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Présence par jour</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Zone climatique (déduite)</div>
+                    <div class="flex items-center gap-1.5"><span class="material-icons text-indigo-500 text-sm">check_circle</span>Besoin de chauffage standard (calculé)</div>
+                </div>
+
+                <div class="mt-6">
+                    <h3 class="font-bold text-indigo-900 mb-2">Une subdivision par région et surface</h3>
+                    <p class="text-sm text-gray-600 leading-relaxed">
+                        Plutôt que d'utiliser un modèle unique global, l'estimateur s'appuie sur une matrice de <strong>168 modèles localisés</strong> (14 régions &times; 6 tranches de surfaces). Cela permet d'ajuster au mieux les spécificités géographiques (les zones météorologiques influent fortement sur le besoin en chauffage) et d'intégrer les subtilités du moteur réglementaire 3CL de l'ADEME (qui adapte les occupants théoriques en fonction de la superficie). De plus, ce découpage a rendu possible le traitement de plus de 50 Go de données d'apprentissage sur des machines de bureau standards.
+                    </p>
+                </div>
+            </div>
+
+            <!-- 3. Précision du modèle -->
+            <div class="glass-card rounded-3xl p-8 mb-8 shadow-md animate-fade-up delay-200">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <span class="material-icons text-indigo-600">analytics</span>
+                    3. Quelle est la précision du modèle ?
+                </h2>
+                <p class="text-sm text-gray-600 leading-relaxed mb-6">
+                    Afin d'évaluer fidèlement la précision des algorithmes, nous avons partagé nos données en deux sous-ensembles : <strong>80 % pour l'apprentissage</strong> (pour configurer les arbres) et <strong>20 % pour le test</strong> (données vierges jamais vues par les modèles, servant uniquement à l'évaluation).
+                </p>
+                
+                <div class="grid md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-white/50 p-6 rounded-2xl border border-gray-150">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-bold text-indigo-950">R² Moyen (Coefficient de détermination)</span>
+                            <span class="text-xl font-extrabold text-indigo-600">0,797</span>
+                        </div>
+                        <p class="text-xs text-gray-500 leading-relaxed">
+                            Le R² mesure la part de la variabilité de la consommation que le modèle parvient à modéliser. Un score de ~0,80 signifie que le modèle explique 80 % de la variance de consommation énergétique réelle. C'est de cette métrique qu'est dérivée la précision de 80 % affichée sur notre site.
+                        </p>
+                    </div>
+                    <div class="bg-white/50 p-6 rounded-2xl border border-gray-150">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-bold text-indigo-950">RMSE Moyen (Erreur quadratique)</span>
+                            <span class="text-xl font-extrabold text-indigo-600">3&nbsp;915,77 kWh/an</span>
+                        </div>
+                        <p class="text-xs text-gray-500 leading-relaxed">
+                            Le RMSE mesure l'écart type entre l'estimation statistique et la consommation mesurée d'un logement. Il donne la dispersion moyenne de l'erreur. Cette marge d'erreur s'explique par les disparités d'habitudes d'usage réels ainsi que par le bruit présent dans les diagnostics sources.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Marges d'erreur et intervalles de confiance -->
+            <div class="glass-card rounded-3xl p-8 mb-8 shadow-md animate-fade-up">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <span class="material-icons text-indigo-600">query_stats</span>
+                    4. Marges d'erreur et intervalles de confiance
+                </h2>
+                <p class="text-sm text-gray-600 leading-relaxed mb-4">
+                    Les prédictions de machine learning reposent sur des approches probabilistes. Il est donc indispensable d'accompagner l'estimation d'une fourchette reflétant l'incertitude statistique inhérente au modèle.
+                </p>
+                
+                <div class="bg-indigo-50/30 rounded-2xl p-6 border border-indigo-100/60 mb-6">
+                    <h3 class="font-bold text-indigo-950 mb-3 flex items-center gap-2">
+                        <span class="material-icons text-sm">settings</span>
+                        Méthode de calcul mathématique
+                    </h3>
+                    <p class="text-xs text-indigo-900 leading-relaxed mb-4 font-medium">
+                        Pour chaque prédiction, Watty associe un intervalle de confiance à 90 % basé sur le RMSE réel calculé lors du test du modèle spécifique (département / surface). Le niveau de confiance à 90 % correspond à un coefficient statistique multiplicateur z-score de 1,645.
+                    </p>
+                    <div class="space-y-3 text-xs text-indigo-900">
+                        <p><strong>• Énergie Primaire Globale (EP) :</strong> Marge d'erreur &Delta; = 1,645 &times; RMSE. La valeur affichée est : <code>[Consommation - &Delta; ; Consommation + &Delta;]</code>.</p>
+                        <p><strong>• Énergie Primaire par m² :</strong> Marge d'erreur &Delta;_m2 = (1,645 &times; RMSE) / Surface Habitable.</p>
+                        <p><strong>• Énergie Finale Électrique (EF) :</strong> Le modèle convertit l'énergie primaire en énergie finale en la divisant par le facteur de conversion officiel (2,3 pour l'électricité en France). Marge &Delta;_ef = (1,645 &times; RMSE) / 2,3.</p>
+                        <p><strong>• Coût Annuel Estimé (Euros) :</strong> Calculé sur l'énergie finale moyenne multipliée par le coût moyen de l'électricité (tarif bleu réglementé à 0,2516 € / kWh). Marge &Delta;_euros = ((1,645 &times; RMSE) / 2,3) &times; 0,2516 €.</p>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50/50 rounded-2xl p-5 border border-amber-100/50 text-xs text-amber-900 leading-relaxed mb-4">
+                    <strong class="flex items-center gap-1 mb-1 text-amber-950"><span class="material-icons text-base">gavel</span> Capping de sécurité</strong>
+                    Afin d'éviter d'afficher des fourchettes démesurées ou des valeurs aberrantes inférieures à zéro, notamment sur les habitations très performantes (Classe A ou B), la marge d'erreur &Delta; est plafonnée à un maximum de <strong>25 % de la valeur estimée</strong>.
+                </div>
+
+                <p class="text-sm text-gray-600 leading-relaxed">
+                    <strong>Une aide à la décision, pas une science exacte :</strong> Cette fourchette indique la bonne direction pour engager des travaux d'économie d'énergie. Il faut aussi noter que les données sources de l'ADEME contiennent elles-mêmes des erreurs humaines de saisie ou des imprécisions de mesures réalisées sur le terrain, ce qui ajoute un bruit de fond que le modèle doit filtrer.
+                </p>
+            </div>
+
+            <!-- 5. Deuxième algorithme probabiliste : Monte Carlo -->
+            <div class="glass-card rounded-3xl p-8 mb-8 shadow-md animate-fade-up">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <span class="material-icons text-indigo-600">casino</span>
+                    5. Deuxième algorithme probabiliste : simulations de Monte-Carlo
+                </h2>
+                <p class="text-sm text-gray-600 leading-relaxed mb-4">
+                    Un DPE officiel est calculé pour des conditions d'occupation standardisées et théoriques (ex: température constante de 19°C, occupation moyenne). Dans la réalité, l'usage des habitants fait fortement varier la consommation d'énergie.
+                </p>
+                <div class="bg-white/50 rounded-2xl p-6 border border-gray-150 shadow-sm">
+                    <p class="text-sm text-gray-650 leading-relaxed">
+                        Pour modéliser cette incertitude comportementale, nous utilisons des simulations de type <strong>Monte-Carlo</strong>. En faisant varier aléatoirement les variables d'usage (la température de chauffe entre 17°C et 22°C, le nombre d'habitants réels et les heures de présence à domicile) selon des lois statistiques représentatives, nous réalisons des milliers de simulations informatiques. 
+                    </p>
+                    <p class="text-sm text-gray-650 leading-relaxed mt-2">
+                        Cela nous permet d'observer la dispersion des résultats et d'attribuer une probabilité de transition vers une classe supérieure. C'est cette méthode qui permet à Watty de calibrer au mieux la consommation « réelle » ressentie par les occupants face aux caractéristiques structurelles et froides du bâtiment.
+                    </p>
+                </div>
+            </div>
+
+            <!-- 6. Les limites connues -->
+            <div class="glass-card rounded-3xl p-8 mb-8 shadow-md animate-fade-up">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <span class="material-icons text-indigo-600">warning</span>
+                    6. Les limites connues
+                </h2>
+                <div class="space-y-4 text-sm text-gray-600 leading-relaxed">
+                    <div class="flex items-start gap-2.5">
+                        <span class="material-icons text-indigo-500 mt-0.5">remove_circle_outline</span>
+                        <span><strong>Habitudes des occupants :</strong> Deux foyers vivant dans des logements strictement identiques afficheront des consommations d'électricité très différentes en fonction de leur sensibilité à la température et de leurs habitudes d'aération.</span>
+                    </div>
+                    <div class="flex items-start gap-2.5">
+                        <span class="material-icons text-indigo-500 mt-0.5">remove_circle_outline</span>
+                        <span><strong>Logements atypiques :</strong> Si votre habitation dispose de spécificités architecturales très peu communes dans votre région, elle sera sous-représentée dans la base d'apprentissage. Watty sera par conséquent moins certain de son estimation qu'avec une maison standard.</span>
+                    </div>
+                    <div class="flex items-start gap-2.5">
+                        <span class="material-icons text-indigo-500 mt-0.5">remove_circle_outline</span>
+                        <span><strong>Équipements spécifiques :</strong> Les grosses consommations externes (piscine chauffée, climatisation intensive l'été, recharge récurrente d'un véhicule électrique) ne sont pas incluses dans les calculs standards de base du DPE.</span>
+                    </div>
+                </div>
+                <div class="mt-6 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50 text-xs text-indigo-900 leading-relaxed">
+                    <strong>⚠️ Démarches réglementaires :</strong> Ce simulateur en ligne constitue une assistance d'aide à la décision. Dans le cadre de démarches administratives officielles (vente immobilière, bail de location, obtention d'aides financières de l'État), il est légalement obligatoire de faire réaliser un diagnostic officiel par un diagnostiqueur professionnel certifié.
+                </div>
+            </div>
+
+            <!-- 7. Intelligence artificielle & 8. RGPD -->
+            <div class="grid md:grid-cols-2 gap-6 mb-8">
+                <div class="glass-card rounded-3xl p-8 shadow-md animate-fade-up">
+                    <h3 class="text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
+                        <span class="material-icons text-indigo-600">smart_toy</span>
+                        7. Intelligence artificielle
+                    </h3>
+                    <p class="text-xs text-gray-500 leading-relaxed">
+                        Cette estimation est intégralement calculée par une intelligence artificielle de type Machine Learning, de façon autonome et sans validation humaine intermédiaire sur votre dossier. C'est un outil purement indicatif qui ne remplace ni l'expertise humaine, ni la méthode de calcul réglementaire officielle du DPE.
+                    </p>
+                    <p class="text-xs text-gray-500 mt-3">
+                        Lien officiel vers la documentation technique : <a href="https://rt-re-batiment.developpement-durable.gouv.fr/la-methode-de-calcul-3cl-dpe-v2021-a607.html" target="_blank" class="text-primary font-bold hover:underline inline-flex items-center gap-0.5">Méthode 3CL ADEME <span class="material-icons text-[10px]">open_in_new</span></a>
+                    </p>
+                </div>
+                <div class="glass-card rounded-3xl p-8 shadow-md animate-fade-up delay-100">
+                    <h3 class="text-xl font-bold text-gray-800 mb-3 flex items-center gap-2">
+                        <span class="material-icons text-indigo-600">lock</span>
+                        8. Vos données (RGPD)
+                    </h3>
+                    <p class="text-xs text-gray-500 leading-relaxed mb-3">
+                        <strong>Ce qu'on collecte :</strong> Nous demandons uniquement les informations du questionnaire nécessaires à l'algorithme (département, surface, isolation, etc.). Aucun nom, email ou adresse précise n'est collecté pendant le calcul.
+                    </p>
+                    <p class="text-xs text-gray-500 leading-relaxed">
+                        <strong>Stockage :</strong> Les réponses sont stockées localement sur votre propre ordinateur (via <code>localStorage</code>) pour afficher le récapitulatif. Aucune donnée n'est envoyée vers nos serveurs ou revendue à des tiers.
+                    </p>
+                </div>
+            </div>
+
+            <!-- 10. Crédits & 12. Contact -->
+            <div class="glass-card rounded-3xl p-8 mb-8 shadow-md animate-fade-up">
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">Crédits & Projet</h3>
+                        <p class="text-xs text-gray-500 leading-relaxed mb-2">
+                            Développé par : <strong>Clément Fritsch Vidal, Nathan Baudron, Eleana Tran, Tristan Paillot, Lily Mei Thibaud</strong>.
+                        </p>
+                        <p class="text-xs text-gray-500 leading-relaxed">
+                            Projet étudiant Capstone réalisé en partenariat étroit avec <strong>HEC Paris, Open Data University, Enedis, Latitudes</strong> et sous l'encadrement d'<strong>Ismaël Ouattara</strong>.
+                        </p>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">Une question, une erreur ?</h3>
+                        <p class="text-xs text-gray-500 leading-relaxed mb-4">
+                            Vous observez une anomalie ou vous souhaitez nous aider à optimiser l'estimateur de Watty ? Écrivez-nous à notre adresse de contact :
+                        </p>
+                        <a href="mailto:projetcapstonedpe@gmail.com" class="inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 px-4 py-2.5 rounded-full text-xs font-bold hover:bg-indigo-100 transition-colors">
+                            <span class="material-icons text-sm">email</span>
+                            projetcapstonedpe@gmail.com
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 11. Glossaire -->
+            <div class="glass-card rounded-3xl p-8 shadow-md animate-fade-up">
+                <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <span class="material-icons text-indigo-600">book</span>
+                    Glossaire
+                </h3>
+                <div class="grid md:grid-cols-2 gap-4 text-xs">
+                    <div class="bg-white/40 p-4 rounded-xl border border-gray-100">
+                        <p class="font-bold text-indigo-950 mb-1">DPE (Diagnostic de Performance Énergétique)</p>
+                        <p class="text-gray-500">Document d'évaluation officiel indiquant la consommation énergétique d'un logement et son impact gaz à effet de serre.</p>
+                    </div>
+                    <div class="bg-white/40 p-4 rounded-xl border border-gray-100">
+                        <p class="font-bold text-indigo-950 mb-1">kWh EP / m² / an</p>
+                        <p class="text-gray-500">Unité de mesure du DPE. Exprime la consommation totale d'énergie primaire du logement rapportée à sa superficie par an.</p>
+                    </div>
+                    <div class="bg-white/40 p-4 rounded-xl border border-gray-100">
+                        <p class="font-bold text-indigo-950 mb-1">XGBoost</p>
+                        <p class="text-gray-500">Modèle algorithmique de gradient boosting basé sur des arbres de décision. C'est le moteur prédictif employé par Watty.</p>
+                    </div>
+                    <div class="bg-white/40 p-4 rounded-xl border border-gray-100">
+                        <p class="font-bold text-indigo-950 mb-1">R² (Coefficient de détermination)</p>
+                        <p class="text-gray-500">Indicateur de qualité statistique compris entre 0 et 1. Il évalue la part de variabilité expliquée par le modèle.</p>
+                    </div>
+                    <div class="bg-white/40 p-4 rounded-xl border border-gray-100">
+                        <p class="font-bold text-indigo-950 mb-1">RMSE (Root Mean Square Error)</p>
+                        <p class="text-gray-500">Écart type moyen des résidus de prédiction. Il exprime la dispersion moyenne de l'erreur dans l'unité de départ.</p>
+                    </div>
+                    <div class="bg-white/40 p-4 rounded-xl border border-gray-100">
+                        <p class="font-bold text-indigo-950 mb-1">Intervalle de confiance</p>
+                        <p class="text-gray-500">Fourchette de valeurs au sein de laquelle se situe la consommation réelle du logement avec un niveau de probabilité donné (ici 90 %).</p>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </div>
+
+    <!-- ===== ESTIMATION CTA SECTION ===== -->
+    <section class="py-12 px-4 sm:px-6 lg:px-8 bg-white/50 border-t border-gray-100">
+        <div class="max-w-4xl mx-auto animate-fade-up">
+            <div
+                class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl shadow-2xl p-8 sm:p-12 text-center relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                <div class="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2"></div>
+                <div class="relative z-10">
+                    <div class="inline-flex p-3 bg-white/20 rounded-2xl mb-6 backdrop-blur-sm">
+                        <span class="material-icons text-white text-3xl">analytics</span>
+                    </div>
+                    <h2 class="text-3xl font-extrabold text-white mb-4">
+                        Prêt à évaluer le DPE de votre logement ?
+                    </h2>
+                    <p class="text-lg text-white/90 mb-8 max-w-2xl mx-auto">
+                        Estimez gratuitement et en 5 minutes votre classe énergétique et recevez nos conseils d'amélioration.
+                    </p>
+                    <button onclick="window.location.href='estimation.html'"
+                        class="inline-flex items-center gap-2 bg-white text-indigo-700 px-8 py-4 rounded-full font-bold text-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
+                        Faire mon estimation
+                        <span class="material-icons">arrow_forward</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="mt-12 text-center text-gray-400 text-sm overflow-hidden pb-6">
+        <p class="mb-4">Créé par l'équipe Des P'tites Economies</p>
+        <div class="logo-slider">
+            <div class="logo-track">
+                <img alt="Logo HEC Paris" class="h-14 mx-8 object-contain opacity-60 hover:opacity-100 transition-opacity" src="Images/Image_2.png" />
+                <img alt="Logo Open Data University" class="h-14 mx-8 object-contain opacity-60 hover:opacity-100 transition-opacity" src="Images/Image_4.png" />
+                <img alt="Logo Des P'tites Economies" class="h-16 mx-8 object-contain opacity-60 hover:opacity-100 transition-opacity" src="Images/Image_5.png" />
+                <img alt="Logo Enedis" class="h-14 mx-8 object-contain opacity-60 hover:opacity-100 transition-opacity" src="Images/Image_1.png" />
+                <img alt="Logo HEC Paris" class="h-14 mx-8 object-contain opacity-60 hover:opacity-100 transition-opacity" src="Images/Image_2.png" />
+                <img alt="Logo Open Data University" class="h-14 mx-8 object-contain opacity-60 hover:opacity-100 transition-opacity" src="Images/Image_4.png" />
+                <img alt="Logo Des P'tites Economies" class="h-16 mx-8 object-contain opacity-60 hover:opacity-100 transition-opacity" src="Images/Image_5.png" />
+                <img alt="Logo Enedis" class="h-14 mx-8 object-contain opacity-60 hover:opacity-100 transition-opacity" src="Images/Image_1.png" />
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Intersection Observer for scroll animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.animationPlayState = 'running';
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.animate-fade-up').forEach(el => {
+            el.style.animationPlayState = 'paused';
+            observer.observe(el);
+        });
+    </script>
+</body>
+
+</html>
