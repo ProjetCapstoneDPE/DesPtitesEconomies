@@ -436,9 +436,6 @@
                                 region: data.region
                             }));
                             return data;
-                        }).catch(error => {
-                            console.error('[Récapitulatif Desktop] Erreur prediction client-side:', error);
-                            localStorage.removeItem('dpe_result');
                         });
                 }
 
@@ -465,12 +462,6 @@
                     percentage.textContent = Math.round(currentProgress) + '%';
                 }, interval);
 
-                // Wait for prediction to finish, then let animation reach 100%
-                if (apiPromise) {
-                    try { await apiPromise; } catch (e) { console.error('Prediction failed:', e); }
-                }
-                animationDone = true;
-
                 // Change loading text during animation
                 const textInterval = setInterval(() => {
                     messageIndex++;
@@ -480,6 +471,49 @@
                         clearInterval(textInterval);
                     }
                 }, messageInterval);
+
+                // Wait for prediction to finish, then let animation reach 100
+                let predictionSuccess = false;
+                let errorMessage = "";
+                if (apiPromise) {
+                    try { 
+                        const data = await apiPromise; 
+                        if (data && data.prediction !== undefined) {
+                            predictionSuccess = true;
+                        } else {
+                            errorMessage = "Données de prédiction invalides.";
+                        }
+                    } catch (e) { 
+                        console.error('Prediction failed:', e); 
+                        errorMessage = e.message || "Erreur de chargement des modèles.";
+                    }
+                } else {
+                    errorMessage = "Aucune réponse trouvée. Veuillez recommencer le questionnaire.";
+                }
+
+                if (predictionSuccess) {
+                    animationDone = true;
+                } else {
+                    clearInterval(progressInterval);
+                    clearInterval(textInterval);
+                    
+                    loadingText.innerHTML = `
+                        <div class="mt-4 p-4 bg-red-500/20 border border-red-500/30 rounded-2xl text-red-200 text-sm max-w-md mx-auto">
+                            <span class="font-bold">⚠️ Échec du calcul DPE</span><br>
+                            <span class="text-xs opacity-90">${errorMessage}</span>
+                        </div>
+                        <div class="flex justify-center gap-3 mt-6">
+                            <button onclick="window.location.reload()" class="px-5 py-2.5 bg-white text-indigo-600 font-bold rounded-xl shadow-md text-xs hover:bg-gray-100 transition-colors">
+                                Réessayer
+                            </button>
+                            <a href="estimation.html" class="px-5 py-2.5 bg-indigo-500/50 border border-indigo-400 text-white font-bold rounded-xl text-xs hover:bg-indigo-500/70 transition-colors">
+                                Modifier mes réponses
+                            </a>
+                        </div>
+                    `;
+                    percentage.textContent = "Échec";
+                    progressBar.style.backgroundColor = "#ef4444";
+                }
             }
 
             // Icônes pour chaque type de critère

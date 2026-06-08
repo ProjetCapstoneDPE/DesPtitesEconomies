@@ -136,10 +136,6 @@
                         }));
                         console.log('[Récapitulatif Mobile] Prédiction sauvegardée:', data.prediction);
                         return data;
-                    })
-                    .catch(err => {
-                        console.error('[Récapitulatif Mobile] Erreur prédiction:', err);
-                        localStorage.removeItem('dpe_result');
                     });
             }
 
@@ -162,12 +158,6 @@
                 percentage.textContent = Math.round(progress) + '%';
             }, interval);
 
-            // 3) Attendre la fin de la prédiction, puis débloquer l'animation
-            if (apiPromise) {
-                try { await apiPromise; } catch(e) { console.error('[Récapitulatif Mobile] Prediction failed:', e); }
-            }
-            predictionDone = true;
-
             // Messages de progression
             const msgInterval = setInterval(() => {
                 msgIdx++;
@@ -177,6 +167,50 @@
                     clearInterval(msgInterval);
                 }
             }, 600);
+
+            // 3) Attendre la fin de la prédiction, puis débloquer l'animation
+            let predictionSuccess = false;
+            let errorMessage = "";
+            if (apiPromise) {
+                try { 
+                    const data = await apiPromise; 
+                    if (data && data.prediction !== undefined) {
+                        predictionSuccess = true;
+                    } else {
+                        errorMessage = "Données de prédiction invalides.";
+                    }
+                } catch(e) { 
+                    console.error('[Récapitulatif Mobile] Prediction failed:', e); 
+                    errorMessage = e.message || "Erreur de chargement des modèles.";
+                }
+            } else {
+                errorMessage = "Aucune réponse trouvée. Veuillez recommencer le questionnaire.";
+            }
+
+            if (predictionSuccess) {
+                predictionDone = true;
+            } else {
+                clearInterval(pInterval);
+                clearInterval(msgInterval);
+                
+                loadingText.innerHTML = `
+                    <div class="mt-4 p-4 bg-red-500/20 border border-red-500/30 rounded-2xl text-red-200 text-xs max-w-xs mx-auto">
+                        <span class="font-bold">⚠️ Échec du calcul DPE</span><br>
+                        <span class="opacity-90">${errorMessage}</span>
+                    </div>
+                    <div class="flex flex-col gap-2 mt-6 max-w-xs mx-auto">
+                        <button onclick="window.location.reload()" class="w-full py-3 bg-white text-indigo-600 font-bold rounded-xl shadow-md text-sm active:bg-gray-100 transition-colors">
+                            Réessayer
+                        </button>
+                        <a href="estimation-mobile.html" class="w-full py-3 bg-indigo-500/50 border border-indigo-400 text-white font-bold rounded-xl text-sm text-center block hover:bg-indigo-500/70 transition-colors">
+                            Modifier mes réponses
+                        </a>
+                    </div>
+                `;
+                percentage.textContent = "Échec";
+                progressBar.style.width = '100%';
+                progressBar.style.background = "#ef4444";
+            }
         }
 
         window.addEventListener('DOMContentLoaded', loadCriteria);

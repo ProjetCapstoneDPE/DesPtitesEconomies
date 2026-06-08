@@ -610,15 +610,31 @@
                     try {
                         const responses = JSON.parse(responsesStr);
                         const result = await predictClientSide(responses);
-                        localStorage.setItem('dpe_result', JSON.stringify(result));
+                        localStorage.setItem('dpe_result', JSON.stringify({
+                            prediction: result.prediction,
+                            predictionElec: result.predictionElec,
+                            predictionReal: result.predictionReal,
+                            confidence_score: result.confidence_score,
+                            features_used: result.features_used,
+                            model_used: result.model_used,
+                            model_file_prefix: result.model_file_prefix,
+                            region: result.region
+                        }));
                         await updateResults();
                         return;
                     } catch (e) {
                         console.error('[Mobile] Échec prédiction auto:', e);
+                        document.getElementById('resultsContainer').classList.add('hidden');
+                        document.getElementById('noDataContainer').classList.remove('hidden');
+                        const msgEl = document.querySelector('#noDataContainer p');
+                        if (msgEl) msgEl.textContent = "Une erreur est survenue lors du calcul : " + (e.message || "Erreur de chargement des modèles.");
+                        return;
                     }
                 }
                 document.getElementById('resultsContainer').classList.add('hidden');
                 document.getElementById('noDataContainer').classList.remove('hidden');
+                const msgEl = document.querySelector('#noDataContainer p');
+                if (msgEl) msgEl.textContent = "Veuillez d'abord remplir le questionnaire pour calculer votre DPE.";
                 return;
             }
 
