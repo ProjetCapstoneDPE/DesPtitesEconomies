@@ -710,8 +710,8 @@
             const chatContent = document.getElementById('chatContent');
             const currentOptions = question.dynamicOptions ? (question.dynamicOptions(responses) || question.options) : question.options;
 
-            // Déterminer s'il s'agit d'une question à choix multiples avec peu d'options (<= 8)
-            const isChoiceGrid = question.type !== 'number' && index !== 0 && currentOptions && currentOptions.length <= 8;
+            // Déterminer s'il s'agit d'une question à choix multiples (toutes sauf département et nombres)
+            const isChoiceGrid = question.type !== 'number' && index !== 0 && currentOptions;
 
             // Créer le contenu HTML
             let html = '';
@@ -719,7 +719,7 @@
             if (isChoiceGrid) {
                 // Layout moderne avec grille de boutons pour les choix simples
                 html += `<p class="text-sm font-semibold mb-4 text-slate-800 dark:text-slate-100">${question.text}</p>`;
-                html += `<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 mb-2">`;
+                html += `<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-4 mb-2">`;
                 currentOptions.forEach(option => {
                     const isSelected = responses[question.id] === option;
                     html += `
