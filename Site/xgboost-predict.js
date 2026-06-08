@@ -1209,3 +1209,4 @@ window.MODEL_RMSE = MODEL_RMSE;
 window.MODEL_RMSE_BY_TRANCHE = MODEL_RMSE_BY_TRANCHE;
 window.getSurfaceTranche = getSurfaceTranche;
 window.formatConfidenceInterval = formatConfidenceInterval;
+window.XGBoostPredictor = XGBoostPredictor;
