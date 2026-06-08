@@ -956,48 +956,73 @@ function identifyCriticalPoints(features, currentGrade) {
         return { targetGrade: 'A', criticalPoints: [] };
     }
 
-    const targetGrade = DPE_GRADES_ORDER[gradeIdx - 1];
-    const targetAverages = DPE_CLASS_AVERAGES[targetGrade];
-    const criticalPoints = [];
+    let targetGradeIdx = gradeIdx - 1;
+    let targetGrade = DPE_GRADES_ORDER[targetGradeIdx];
+    
+    // Sécurité: Si la classe cible est moins bonne que D (E ou F), on cible directement la classe D.
+    if (targetGrade === 'F' || targetGrade === 'E') {
+        targetGrade = 'D';
+        targetGradeIdx = DPE_GRADES_ORDER.indexOf('D');
+    }
 
-    for (const [key, targetVal] of Object.entries(targetAverages)) {
-        const userVal = features[key];
-        if (userVal === undefined || userVal === null) continue;
+    let criticalPoints = [];
 
-        const meta = CRITICAL_POINT_LABELS[key] || { icon: '📌', label: key, unit: '' };
-        let isCritical = false;
+    // Boucle pour remonter la classe cible jusqu'à trouver au moins un point critique modifiable par l'utilisateur
+    // ou atteindre la classe A
+    while (targetGradeIdx >= 0) {
+        targetGrade = DPE_GRADES_ORDER[targetGradeIdx];
+        const targetAverages = DPE_CLASS_AVERAGES[targetGrade];
+        criticalPoints = [];
 
-        if (QUALITY_SCALES[key]) {
-            // Comparaison ordinale (catégorielle)
-            const scale = QUALITY_SCALES[key];
-            const userScore = scale[userVal] !== undefined ? scale[userVal] : -1;
-            const targetScore = scale[targetVal] !== undefined ? scale[targetVal] : -1;
-            isCritical = userScore < targetScore;
-        } else if (FEATURE_DIRECTION[key]) {
-            // Comparaison numérique
-            const dir = FEATURE_DIRECTION[key];
-            if (dir === 'lower') {
-                isCritical = userVal > targetVal; // User a une valeur trop haute
+        for (const [key, targetVal] of Object.entries(targetAverages)) {
+            const userVal = features[key];
+            if (userVal === undefined || userVal === null) continue;
+
+            const meta = CRITICAL_POINT_LABELS[key] || { icon: '📌', label: key, unit: '' };
+            let isCritical = false;
+
+            if (QUALITY_SCALES[key]) {
+                const scale = QUALITY_SCALES[key];
+                const userScore = scale[userVal] !== undefined ? scale[userVal] : -1;
+                const targetScore = scale[targetVal] !== undefined ? scale[targetVal] : -1;
+                isCritical = userScore < targetScore;
+            } else if (FEATURE_DIRECTION[key]) {
+                const dir = FEATURE_DIRECTION[key];
+                if (dir === 'lower') {
+                    isCritical = userVal > targetVal;
+                } else {
+                    isCritical = userVal < targetVal;
+                }
             } else {
-                isCritical = userVal < targetVal; // User a une valeur trop basse
+                isCritical = String(userVal) !== String(targetVal);
             }
-        } else {
-            // Features catégorielles non-ordinales (chauffage, ECS)
-            // On considère critique si la valeur est différente de la cible
-            isCritical = String(userVal) !== String(targetVal);
+
+            if (isCritical) {
+                criticalPoints.push({
+                    key,
+                    label: meta.label,
+                    icon: meta.icon,
+                    unit: meta.unit,
+                    currentValue: userVal,
+                    targetValue: targetVal,
+                    type: QUALITY_SCALES[key] ? 'ordinal' : (FEATURE_DIRECTION[key] ? 'numeric' : 'categorical'),
+                });
+            }
         }
 
-        if (isCritical) {
-            criticalPoints.push({
-                key,
-                label: meta.label,
-                icon: meta.icon,
-                unit: meta.unit,
-                currentValue: userVal,
-                targetValue: targetVal,
-                type: QUALITY_SCALES[key] ? 'ordinal' : (FEATURE_DIRECTION[key] ? 'numeric' : 'categorical'),
-            });
+        // Vérifier s'il y a au moins un point critique modifiable par l'utilisateur
+        let modifiableKeys = ['qualite_isolation_menuiseries', 'type_emetteur_installation_chauffage_n1', 'type_generateur_n1_ecs_n1', 'presence_brasseur_air', 'protection_solaire_exterieure', 'qualite_isolation_enveloppe', 'qualite_isolation_murs', 'qualite_isolation_plancher_bas'];
+        if (features.type_batiment === 'maison') {
+            modifiableKeys.push('isolation_toiture_clean');
         }
+
+        const hasModifiable = criticalPoints.some(cp => modifiableKeys.includes(cp.key));
+
+        if (hasModifiable || targetGrade === 'A') {
+            break;
+        }
+
+        targetGradeIdx--;
     }
 
     return { targetGrade, criticalPoints };
