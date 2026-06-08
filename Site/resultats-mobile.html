@@ -626,6 +626,8 @@
             const resultStr = localStorage.getItem('dpe_result');
             const responsesStr = localStorage.getItem('dpe_responses');
 
+            console.log('[Mobile updateResults] dpe_result exists:', !!resultStr, '| dpe_responses exists:', !!responsesStr);
+
             if (!resultStr) {
                 if (responsesStr) {
                     console.info('[Mobile] Résultat manquant, relance automatique de la prédiction...');
@@ -659,11 +661,18 @@
 
             try {
                 const result = JSON.parse(resultStr);
+                console.log('[Mobile] Parsed result prediction:', result.prediction, 'type:', typeof result.prediction);
                 if (!result || typeof result.prediction !== 'number' || isNaN(result.prediction) || result.prediction <= 0) {
-                    throw new Error("Les données de l'estimation sont corrompues ou invalides.");
+                    throw new Error("Les données de l'estimation sont corrompues ou invalides (prediction=" + result.prediction + ").");
                 }
                 const responses = responsesStr ? JSON.parse(responsesStr) : [];
                 currentResponses = responses;
+
+                // *** AFFICHER LE CONTENEUR DES RÉSULTATS ***
+                const resultsContainer = document.getElementById('resultsContainer');
+                const noDataContainer = document.getElementById('noDataContainer');
+                if (resultsContainer) resultsContainer.classList.remove('hidden');
+                if (noDataContainer) noDataContainer.classList.add('hidden');
 
                 // 1) DÉTERMINATION DE L'ÉNERGIE ET DU FACTEUR (Calculé tôt pour la consistance)
                 let convFactor = 2.3;
@@ -846,7 +855,6 @@
                         });
                         document.getElementById('criticalPointsList').innerHTML = cpHtml;
                     }
-                }
 
                 // 3) Construire les features améliorées et re-prédire si des travaux sont possibles
                 let newPrediction = consoTheoEP;

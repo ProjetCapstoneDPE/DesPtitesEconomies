@@ -124,6 +124,8 @@
             // 1) Lancer la prédiction XGBoost
             const savedData = localStorage.getItem('dpe_responses');
             let apiPromise = null;
+            // Supprimer l'ancien résultat pour éviter d'afficher des données périmées
+            localStorage.removeItem('dpe_result');
             if (savedData) {
                 const arr = JSON.parse(savedData);
                 apiPromise = predictClientSide(arr)
