@@ -1195,9 +1195,14 @@
 
             try {
                 if (resultsContainer) resultsContainer.classList.remove('hidden');
-                if (noDataContainer) noDataContainer.classList.add('hidden');
+                if (noDataContainer) {
+                    noDataContainer.classList.add('hidden');
+                }
 
                 const result = JSON.parse(resultStr);
+                if (!result || typeof result.prediction !== 'number' || isNaN(result.prediction) || result.prediction <= 0) {
+                    throw new Error("Les données de l'estimation sont corrompues ou invalides.");
+                }
                 const responses = responsesStr ? JSON.parse(responsesStr) : [];
 
                 // 1) DÉTERMINATION DE L'ÉNERGIE ET DU FACTEUR (Calculé tôt pour la consistance)
@@ -1585,7 +1590,7 @@
 
             } catch (e) {
                 console.error("Error displaying results", e);
-                renderScale(185);
+                showErrorState(e.message || "Une erreur inconnue est survenue lors de l'affichage des résultats.");
             }
         }
 

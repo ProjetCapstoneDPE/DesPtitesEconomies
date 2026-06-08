@@ -604,6 +604,24 @@
         // ============================================
         let currentResponses = [];
 
+        const showMobileError = (msg) => {
+            const resultsContainer = document.getElementById('resultsContainer');
+            const noDataContainer = document.getElementById('noDataContainer');
+            if (resultsContainer) resultsContainer.classList.add('hidden');
+            if (noDataContainer) {
+                noDataContainer.classList.remove('hidden');
+                const titleEl = noDataContainer.querySelector('h1');
+                if (titleEl) titleEl.textContent = "Échec du calcul DPE";
+                const descEl = noDataContainer.querySelector('p');
+                if (descEl) descEl.textContent = msg;
+                const btnEl = noDataContainer.querySelector('button');
+                if (btnEl) {
+                    btnEl.textContent = "Recommencer l'estimation";
+                    btnEl.onclick = () => { window.location.href = 'estimation-mobile.html'; };
+                }
+            }
+        };
+
         async function updateResults() {
             const resultStr = localStorage.getItem('dpe_result');
             const responsesStr = localStorage.getItem('dpe_responses');
@@ -614,6 +632,9 @@
                     try {
                         const responses = JSON.parse(responsesStr);
                         const result = await predictClientSide(responses);
+                        if (!result || typeof result.prediction !== 'number' || isNaN(result.prediction) || result.prediction <= 0) {
+                            throw new Error("Calcul de prédiction invalide ou NaN.");
+                        }
                         localStorage.setItem('dpe_result', JSON.stringify({
                             prediction: result.prediction,
                             predictionElec: result.predictionElec,
@@ -628,22 +649,19 @@
                         return;
                     } catch (e) {
                         console.error('[Mobile] Échec prédiction auto:', e);
-                        document.getElementById('resultsContainer').classList.add('hidden');
-                        document.getElementById('noDataContainer').classList.remove('hidden');
-                        const msgEl = document.querySelector('#noDataContainer p');
-                        if (msgEl) msgEl.textContent = "Une erreur est survenue lors du calcul : " + (e.message || "Erreur de chargement des modèles.");
+                        showMobileError("Une erreur est survenue lors du calcul : " + (e.message || "Erreur de chargement des modèles."));
                         return;
                     }
                 }
-                document.getElementById('resultsContainer').classList.add('hidden');
-                document.getElementById('noDataContainer').classList.remove('hidden');
-                const msgEl = document.querySelector('#noDataContainer p');
-                if (msgEl) msgEl.textContent = "Veuillez d'abord remplir le questionnaire pour calculer votre DPE.";
+                showMobileError("Veuillez d'abord remplir le questionnaire pour calculer votre DPE.");
                 return;
             }
 
             try {
                 const result = JSON.parse(resultStr);
+                if (!result || typeof result.prediction !== 'number' || isNaN(result.prediction) || result.prediction <= 0) {
+                    throw new Error("Les données de l'estimation sont corrompues ou invalides.");
+                }
                 const responses = responsesStr ? JSON.parse(responsesStr) : [];
                 currentResponses = responses;
 
@@ -940,7 +958,10 @@
 
                 // Init simulator
                 initSimulation(responses);
-            } catch (e) { console.error("[Mobile] Error displaying results", e); }
+            } catch (e) { 
+                console.error("[Mobile] Error displaying results", e); 
+                showMobileError(e.message || "Une erreur inconnue est survenue lors de l'affichage des résultats.");
+            }
         }
 
         // ============================================

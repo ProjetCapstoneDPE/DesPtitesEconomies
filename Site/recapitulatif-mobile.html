@@ -179,10 +179,10 @@
             if (apiPromise) {
                 try { 
                     const data = await apiPromise; 
-                    if (data && data.prediction !== undefined) {
+                    if (data && typeof data.prediction === 'number' && !isNaN(data.prediction) && data.prediction > 0) {
                         predictionSuccess = true;
                     } else {
-                        errorMessage = "Données de prédiction invalides.";
+                        errorMessage = "Données de prédiction invalides (calcul NaN ou nul).";
                     }
                 } catch(e) { 
                     console.error('[Récapitulatif Mobile] Prediction failed:', e); 
