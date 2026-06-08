@@ -858,6 +858,23 @@ const QUALITY_SCALES = {
     isolation_toiture_clean: {
         'Non Isolé': 0, 'Inconnu': 0, 'Isolé': 1
     },
+    type_emetteur_installation_chauffage_n1: {
+        'Convecteur électrique NFC, NF** et NF***': 0,
+        'radiateur électrique NFC, NF** et NF***': 1,
+        'Radiateur bitube avec robinet thermostatique sur réseau individuel eau chaude basse ou moyenne température(inf 65°C)': 2,
+        'Poêle bois': 2,
+        'Soufflage d\'air chaud (air soufflé) avec distribution par réseau aéraulique': 2,
+        'Plancher chauffant sur réseau individuel eau chaude basse ou moyenne température(inf 65°C)': 3
+    },
+    type_generateur_n1_ecs_n1: {
+        'Chaudière fioul standard 1991-2015': 0,
+        'Ballon électrique à accumulation vertical Catégorie C ou 3 étoiles': 1,
+        'Chaudière gaz standard 2001-2015': 2,
+        'Chauffe-eau gaz à production instantanée 2001-2015': 2,
+        'Réseau de chaleur isolé': 3,
+        'CET sur air extérieur après 2014': 4,
+        'PAC double service après 2014': 5
+    }
 };
 
 /**
