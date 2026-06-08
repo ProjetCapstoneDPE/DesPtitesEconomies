@@ -95,91 +95,7 @@
             overflow-y: auto;
         }
 
-        /* Help Button Styles */
-        .help-button {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 24px;
-            height: 24px;
-            margin-left: 8px;
-            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
-            color: white;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);
-            border: none;
-            vertical-align: middle;
-        }
 
-        .help-button:hover {
-            transform: scale(1.1);
-            box-shadow: 0 4px 8px rgba(79, 70, 229, 0.4);
-            background: linear-gradient(135deg, #4338ca 0%, #6D28D9 100%);
-        }
-
-        /* Help Panel Styles */
-        .help-panel {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.4s ease, margin-top 0.4s ease, opacity 0.3s ease;
-            opacity: 0;
-            margin-top: 0;
-        }
-
-        .help-panel.expanded {
-            max-height: 500px;
-            margin-top: 12px;
-            opacity: 1;
-        }
-
-        .help-content {
-            background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
-            border-left: 4px solid #4F46E5;
-            padding: 12px 16px;
-            border-radius: 8px;
-            display: flex;
-            gap: 12px;
-            align-items: start;
-            box-shadow: 0 2px 8px rgba(79, 70, 229, 0.15);
-        }
-
-        .dark .help-content {
-            background: linear-gradient(135deg, #312e81 0%, #3730a3 100%);
-            border-left-color: #818cf8;
-        }
-
-        .help-avatar {
-            flex-shrink: 0;
-            width: 32px;
-            height: 32px;
-            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 4px;
-        }
-
-        .help-avatar img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-
-        .help-text {
-            flex: 1;
-            font-size: 13px;
-            line-height: 1.5;
-            color: #3730a3;
-        }
-
-        .dark .help-text {
-            color: #c7d2fe;
-        }
 
         .gradient-text {
             background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #EC4899 100%);
@@ -755,82 +671,127 @@
         let currentQuestion = 0;
         let responses = {};
 
+        // Fonction pour gérer le clic sur une option de type bouton
+        function handleChoiceClick(value, btnElement) {
+            const question = questions[currentQuestion];
+            responses[question.id] = value;
+
+            // Mettre à jour l'affichage visuel des boutons
+            const container = btnElement.parentElement;
+            const buttons = container.querySelectorAll('button');
+            buttons.forEach(btn => {
+                btn.className = "option-btn border-2 py-3.5 px-5 rounded-2xl transition-all font-semibold text-sm text-left flex justify-between items-center cursor-pointer border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-indigo-300 dark:hover:border-indigo-800 hover:bg-slate-50 dark:hover:bg-slate-750";
+                const icon = btn.querySelector('.material-icons');
+                if (icon) {
+                    icon.textContent = 'radio_button_unchecked';
+                    icon.className = 'material-icons text-slate-350 dark:text-slate-500';
+                }
+            });
+
+            btnElement.className = "option-btn border-2 py-3.5 px-5 rounded-2xl transition-all font-semibold text-sm text-left flex justify-between items-center cursor-pointer border-primary bg-indigo-50/50 text-primary";
+            const activeIcon = btnElement.querySelector('.material-icons');
+            if (activeIcon) {
+                activeIcon.textContent = 'check_circle';
+                activeIcon.className = 'material-icons text-primary';
+            }
+
+            document.getElementById('nextButton').disabled = false;
+
+            // Passage automatique à la question suivante après un court délai
+            if (window.choiceAutoAdvanceTimeout) clearTimeout(window.choiceAutoAdvanceTimeout);
+            window.choiceAutoAdvanceTimeout = setTimeout(() => {
+                nextQuestion();
+            }, 400);
+        }
+
         // Fonction pour afficher une question
         function displayQuestion(index) {
             const question = questions[index];
             const chatContent = document.getElementById('chatContent');
+            const currentOptions = question.dynamicOptions ? (question.dynamicOptions(responses) || question.options) : question.options;
+
+            // Déterminer s'il s'agit d'une question à choix multiples avec peu d'options (<= 8)
+            const isChoiceGrid = question.type !== 'number' && index !== 0 && currentOptions && currentOptions.length <= 8;
 
             // Créer le contenu HTML
-            let html = `<p class="text-sm mb-4">${question.text}`;
+            let html = '';
 
-            // Ajouter le champ de saisie (input avec autocomplétion pour département, select classique pour les autres)
-            if (question.type === 'number') {
-                const escapedValue = (responses[question.id] || '');
-                html += `
-                <span class="relative inline-flex items-center ml-2">
-                    <input 
-                        type="number" 
-                        id="questionSelect" 
-                        placeholder="${question.placeholder || ''}"
-                        min="${question.min}"
-                        max="${question.max}"
-                        step="${question.step}"
-                        class="bg-blue-100 dark:bg-slate-700 border-2 border-primary text-primary font-semibold text-sm rounded-lg py-1 pl-3 pr-3 focus:outline-none focus:ring-2 focus:ring-primary w-32 align-middle"
-                        value="${escapedValue}"
-                    />
-                </span>
-            `;
-            } else if (index === 0) {
-                // Pour le département, utiliser un input avec datalist pour l'autocomplétion
-                const escapedValue = (responses[question.id] || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                html += `
-                <span class="relative inline-flex items-center ml-2">
-                    <input 
-                        type="text" 
-                        id="questionSelect" 
-                        list="departementList"
-                        placeholder="Chercher..."
-                        class="bg-blue-100 dark:bg-slate-700 border-2 border-primary text-primary font-semibold text-sm rounded-lg py-1 pl-3 pr-3 focus:outline-none focus:ring-2 focus:ring-primary w-48 align-middle"
-                        value="${escapedValue}"
-                    />
-                    <datalist id="departementList">
-            `;
-                question.options.forEach(option => {
-                    const escapedOption = option.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                    html += `<option value="${escapedOption}">${option}</option>`;
-                });
-                html += `
-                    </datalist>
-                </span>
-            `;
-            } else {
-                // Pour les autres questions, menu déroulant classique
-                const currentOptions = question.dynamicOptions ? (question.dynamicOptions(responses) || question.options) : question.options;
-                html += `
-                <span class="relative inline-flex items-center ml-2">
-                    <select id="questionSelect" 
-                        class="appearance-none bg-blue-100 dark:bg-slate-700 border-2 border-primary text-primary font-semibold text-sm rounded-lg py-1 pl-3 pr-8 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer align-middle">
-                        <option value="">--</option>
-            `;
+            if (isChoiceGrid) {
+                // Layout moderne avec grille de boutons pour les choix simples
+                html += `<p class="text-sm font-semibold mb-4 text-slate-800 dark:text-slate-100">${question.text}</p>`;
+                html += `<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 mb-2">`;
                 currentOptions.forEach(option => {
-                    const selected = responses[question.id] === option ? 'selected' : '';
-                    html += `<option value="${option}" ${selected}>${option}</option>`;
+                    const isSelected = responses[question.id] === option;
+                    html += `
+                        <button type="button" onclick="handleChoiceClick('${option.replace(/'/g, "\\'")}', this)" 
+                            class="option-btn border-2 py-3.5 px-5 rounded-2xl transition-all font-semibold text-sm text-left flex justify-between items-center cursor-pointer ${isSelected ? 'border-primary bg-indigo-50/50 text-primary' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-indigo-300 dark:hover:border-indigo-800 hover:bg-slate-50 dark:hover:bg-slate-750'}">
+                            <span>${option}</span>
+                            ${isSelected ? '<span class="material-icons text-primary" style="font-size: 18px;">check_circle</span>' : '<span class="material-icons text-slate-350 dark:text-slate-500" style="font-size: 18px;">radio_button_unchecked</span>'}
+                        </button>
+                    `;
                 });
-                html += `
-                    </select>
-                    <span class="material-icons absolute right-2 top-1/2 -translate-y-1/2 text-primary pointer-events-none">expand_more</span>
-                </span>
-            `;
-            }
+                html += `</div>`;
+            } else {
+                // Layout en ligne d'origine pour les inputs ou les menus déroulants longs
+                html += `<p class="text-sm mb-4">${question.text}`;
 
-            // Ajouter le bouton d'aide si la question a une propriété help
-            if (question.help) {
-                html += `
-                    <button class="help-button" onclick="toggleHelp()" aria-label="Aide">?</button>
+                if (question.type === 'number') {
+                    const escapedValue = (responses[question.id] || '');
+                    html += `
+                    <span class="relative inline-flex items-center ml-2">
+                        <input 
+                            type="number" 
+                            id="questionSelect" 
+                            placeholder="${question.placeholder || ''}"
+                            min="${question.min}"
+                            max="${question.max}"
+                            step="${question.step}"
+                            class="bg-blue-100 dark:bg-slate-700 border-2 border-primary text-primary font-semibold text-sm rounded-lg py-1 pl-3 pr-3 focus:outline-none focus:ring-2 focus:ring-primary w-32 align-middle"
+                            value="${escapedValue}"
+                        />
+                    </span>
                 `;
+                } else if (index === 0) {
+                    const escapedValue = (responses[question.id] || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                    html += `
+                    <span class="relative inline-flex items-center ml-2">
+                        <input 
+                            type="text" 
+                            id="questionSelect" 
+                            list="departementList"
+                            placeholder="Chercher..."
+                            class="bg-blue-100 dark:bg-slate-700 border-2 border-primary text-primary font-semibold text-sm rounded-lg py-1 pl-3 pr-3 focus:outline-none focus:ring-2 focus:ring-primary w-48 align-middle"
+                            value="${escapedValue}"
+                        />
+                        <datalist id="departementList">
+                `;
+                    question.options.forEach(option => {
+                        const escapedOption = option.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                        html += `<option value="${escapedOption}">${option}</option>`;
+                    });
+                    html += `
+                        </datalist>
+                    </span>
+                `;
+                } else {
+                    html += `
+                    <span class="relative inline-flex items-center ml-2">
+                        <select id="questionSelect" 
+                            class="appearance-none bg-blue-100 dark:bg-slate-700 border-2 border-primary text-primary font-semibold text-sm rounded-lg py-1 pl-3 pr-8 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer align-middle">
+                            <option value="">--</option>
+                `;
+                    currentOptions.forEach(option => {
+                        const selected = responses[question.id] === option ? 'selected' : '';
+                        html += `<option value="${option}" ${selected}>${option}</option>`;
+                    });
+                    html += `
+                        </select>
+                        <span class="material-icons absolute right-2 top-1/2 -translate-y-1/2 text-primary pointer-events-none">expand_more</span>
+                    </span>
+                `;
+                }
+                html += `</p>`;
             }
-
-            html += `</p>`;
 
             // Dernière question : message de conclusion
             if (index === questions.length - 1) {
@@ -846,17 +807,13 @@
                 }
             }
 
-            // Ajouter le panneau d'aide extensible si la question a une propriété help
+            // Afficher l'aide en dessous par défaut (inline) si disponible
             if (question.help) {
                 html += `
-                    <div id="helpPanel" class="help-panel">
-                        <div class="help-content">
-                            <div class="help-avatar">
-                                <img src="Images/Image_6.png" alt="Watty">
-                            </div>
-                            <div class="help-text">
-                                ${question.help}
-                            </div>
+                    <div class="mt-4 p-4 bg-indigo-50/50 dark:bg-slate-750/30 rounded-2xl border border-indigo-100/50 dark:border-slate-700/50 flex items-start gap-3 text-sm text-indigo-700 dark:text-indigo-300 animate-fade-up">
+                        <span class="material-icons text-primary mt-0.5 flex-shrink-0" style="font-size: 20px;">lightbulb</span>
+                        <div class="leading-relaxed">
+                            ${question.help}
                         </div>
                     </div>
                 `;
@@ -873,22 +830,48 @@
 
                 // Ajouter l'événement de changement au select ou input
                 const inputElement = document.getElementById('questionSelect');
-                inputElement.addEventListener('change', handleSelectChange);
-                inputElement.addEventListener('input', handleSelectChange); // Pour l'input text
+                if (inputElement) {
+                    inputElement.addEventListener('change', handleSelectChange);
+                    inputElement.addEventListener('input', handleSelectChange); // Pour l'input text
 
-                if (question.type === 'number') {
-                    inputElement.addEventListener('blur', function(e) {
-                        let val = parseFloat(e.target.value);
-                        if (!isNaN(val)) {
-                            if (val < question.min) val = question.min;
-                            if (val > question.max) val = question.max;
-                            const decimals = (question.step.toString().split('.')[1] || '').length;
-                            val = parseFloat(val.toFixed(decimals));
-                            e.target.value = val;
-                            responses[question.id] = val.toString();
-                            document.getElementById('nextButton').disabled = false;
-                        }
-                    });
+                    if (question.type === 'number') {
+                        // Gérer la validation au blur
+                        inputElement.addEventListener('blur', function(e) {
+                            let val = parseFloat(e.target.value);
+                            if (!isNaN(val)) {
+                                if (val < question.min) val = question.min;
+                                if (val > question.max) val = question.max;
+                                const decimals = (question.step.toString().split('.')[1] || '').length;
+                                val = parseFloat(val.toFixed(decimals));
+                                e.target.value = val;
+                                responses[question.id] = val.toString();
+                                document.getElementById('nextButton').disabled = false;
+                            }
+                        });
+
+                        // Gérer l'envoi direct à la touche Entrée pour les nombres
+                        inputElement.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                inputElement.blur();
+                                if (responses[question.id]) {
+                                    nextQuestion();
+                                }
+                            }
+                        });
+                    }
+
+                    if (question.id === 'departement') {
+                        // Gérer la touche Entrée pour le département
+                        inputElement.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (responses[question.id]) {
+                                    nextQuestion();
+                                }
+                            }
+                        });
+                    }
                 }
 
                 // Vérifier si une réponse existe déjà
@@ -909,14 +892,6 @@
             }
         }
 
-        // Fonction pour afficher/masquer le panneau d'aide
-        function toggleHelp() {
-            const helpPanel = document.getElementById('helpPanel');
-            if (helpPanel) {
-                helpPanel.classList.toggle('expanded');
-            }
-        }
-
         // Gérer le changement de sélection
         function handleSelectChange(e) {
             const question = questions[currentQuestion];
@@ -928,8 +903,12 @@
                     if (question.options.includes(value)) {
                         responses[question.id] = value;
                         document.getElementById('nextButton').disabled = false;
+                        // Envoi automatique après un court délai
+                        if (window.deptAutoAdvanceTimeout) clearTimeout(window.deptAutoAdvanceTimeout);
+                        window.deptAutoAdvanceTimeout = setTimeout(() => {
+                            nextQuestion();
+                        }, 500);
                     } else {
-                        // Valeur partielle ou invalide, désactiver Suivant
                         delete responses[question.id];
                         document.getElementById('nextButton').disabled = true;
                     }
@@ -945,6 +924,11 @@
                 } else {
                     responses[question.id] = value;
                     document.getElementById('nextButton').disabled = false;
+                    // Envoi automatique pour le menu déroulant classique (> 8 choix)
+                    if (window.selectAutoAdvanceTimeout) clearTimeout(window.selectAutoAdvanceTimeout);
+                    window.selectAutoAdvanceTimeout = setTimeout(() => {
+                        nextQuestion();
+                    }, 400);
                 }
             } else {
                 delete responses[question.id];
