@@ -1378,13 +1378,30 @@
                 const cpList = document.getElementById('criticalPointsList');
                 if (cpList) cpList.innerHTML = '';
 
-                if (result.features_used && currentGrade !== 'A') {
-                    // 1) Identifier les points critiques (TOUS)
-                    let { targetGrade, criticalPoints: allCriticalPoints } = identifyCriticalPoints(result.features_used, currentGrade);
+                let targetGrade = 'A';
+                let displayCriticalPoints = [];
+                let allCriticalPoints = [];
+                let hasImprovement = false;
+                let newPrediction = consoTheoEP;
 
-                    // Filtrage pour l'affichage: on ne montre que les variables modifiables par l'utilisateur
-                    // Murs, plancher et enveloppe sont modifiables pour tous les types de bâtiment
-                    // La toiture n'est modifiable que pour les maisons (impossible d'agir sur le toit en appartement)
+                if (result.features_used && currentGrade !== 'A') {
+                    // Les classes à tester, de la classe immédiatement supérieure (currentGrade - 1) jusqu'à A
+                    const gradeIdx = DPE_GRADES_ORDER.indexOf(currentGrade);
+                    let testGradeIdx = gradeIdx - 1;
+
+                    // Charger le modèle DPE pour faire les prédictions dans la boucle
+                    let predictor = null;
+                    try {
+                        const [modelRegion, modelSurfKey] = result.model_used.split('/');
+                        const modelFilePrefix = result.model_file_prefix || modelRegion;
+                        const modelUrl = `models_json/${modelRegion}/pipeline_${modelFilePrefix}_${modelSurfKey}_dpe.json`;
+                        predictor = new XGBoostPredictor();
+                        await predictor.loadModel(modelUrl);
+                    } catch (e) {
+                        console.warn('[Re-prédiction] Impossible de charger le modèle pour la recherche :', e.message);
+                    }
+
+                    // Définir les variables modifiables par l'utilisateur
                     let modifiableKeys = [
                         'qualite_isolation_menuiseries',
                         'type_emetteur_installation_chauffage_n1',
@@ -1395,156 +1412,187 @@
                         'qualite_isolation_murs',
                         'qualite_isolation_plancher_bas'
                     ];
-                    
-                    // Seule la toiture est réservée aux maisons (impossible d'agir sur le toit en appartement)
                     if (result.features_used && result.features_used.type_batiment === 'maison') {
                         modifiableKeys.push('isolation_toiture_clean');
                     }
-                    const displayCriticalPoints = allCriticalPoints.filter(cp => modifiableKeys.includes(cp.key));
 
-                    console.log(`[Points Critiques] Classe actuelle: ${currentGrade} → Cible: ${targetGrade}`);
-                    console.log('[Points Critiques] Tous:', allCriticalPoints.length, '| Affichables:', displayCriticalPoints.length);
+                    // On cherche la classe cible la plus facile à atteindre qui apporte une amélioration de classe
+                    while (testGradeIdx >= 0) {
+                        const candidateGrade = DPE_GRADES_ORDER[testGradeIdx];
+                        
+                        // 1) Identifier les points critiques pour cette classe candidate
+                        const candidateAverages = DPE_CLASS_AVERAGES[candidateGrade];
+                        const candCPs = [];
+                        for (const [key, targetVal] of Object.entries(candidateAverages)) {
+                            const userVal = result.features_used[key];
+                            if (userVal === undefined || userVal === null) continue;
 
-                    // 2) Afficher les points critiques modifiables dans l'UI
-                    if (displayCriticalPoints.length > 0) {
-                        const cpSection = document.getElementById('criticalPointsSection');
-                        cpSection.style.display = 'block';
-                        document.getElementById('targetClassBadge').textContent = targetGrade;
+                            let isCritical = false;
+                            if (QUALITY_SCALES[key]) {
+                                const scale = QUALITY_SCALES[key];
+                                const userScore = scale[userVal] !== undefined ? scale[userVal] : -1;
+                                const targetScore = scale[targetVal] !== undefined ? scale[targetVal] : -1;
+                                isCritical = userScore < targetScore;
+                            } else if (FEATURE_DIRECTION[key]) {
+                                const dir = FEATURE_DIRECTION[key];
+                                isCritical = dir === 'lower' ? userVal > targetVal : userVal < targetVal;
+                            } else {
+                                isCritical = String(userVal) !== String(targetVal);
+                            }
 
-                        const cpList = document.getElementById('criticalPointsList');
-                        let cpHtml = '';
-                        displayCriticalPoints.forEach((cp, i) => {
-                            const getLabel = (v, key) => {
-                                if (key === 'presence_brasseur_air' || key === 'protection_solaire_exterieure') {
-                                    return Number(v) === 1 ? 'Oui' : 'Non';
-                                }
-                                return (window.FEATURE_VALUE_LABELS && window.FEATURE_VALUE_LABELS[v]) ? window.FEATURE_VALUE_LABELS[v] : v;
-                            };
-                            
-                            const currentDisplay = (typeof cp.currentValue === 'number' && cp.key !== 'presence_brasseur_air' && cp.key !== 'protection_solaire_exterieure')
-                                ? Math.round(cp.currentValue * 100) / 100 + (cp.unit ? ` ${cp.unit}` : '')
-                                : getLabel(cp.currentValue, cp.key);
-                            const targetDisplay = (typeof cp.targetValue === 'number' && cp.key !== 'presence_brasseur_air' && cp.key !== 'protection_solaire_exterieure')
-                                ? Math.round(cp.targetValue * 100) / 100 + (cp.unit ? ` ${cp.unit}` : '')
-                                : getLabel(cp.targetValue, cp.key);
+                            if (isCritical) {
+                                const meta = CRITICAL_POINT_LABELS[key] || { icon: '📌', label: key, unit: '' };
+                                candCPs.push({
+                                    key,
+                                    label: meta.label,
+                                    icon: meta.icon,
+                                    unit: meta.unit,
+                                    currentValue: userVal,
+                                    targetValue: targetVal,
+                                    type: QUALITY_SCALES[key] ? 'ordinal' : (FEATURE_DIRECTION[key] ? 'numeric' : 'categorical'),
+                                });
+                            }
+                        }
 
-                            cpHtml += `
-                                <div class="flex items-center gap-3 p-3 bg-gradient-to-r from-red-50/80 to-amber-50/80 rounded-xl border border-red-200/50"
-                                     style="animation: fadeInUp .5s ease-out ${i * 0.08}s both;">
-                                    <div class="text-xl flex-shrink-0">${cp.icon}</div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-xs font-bold text-gray-700">${cp.label}</p>
-                                        <div class="flex items-center gap-2 mt-1">
-                                            <span class="text-[10px] font-semibold text-red-600 bg-red-100 px-2 py-0.5 rounded-full truncate max-w-[120px]" title="${currentDisplay}">${currentDisplay}</span>
-                                            <span class="material-icons text-gray-400" style="font-size:14px">arrow_forward</span>
-                                            <span class="text-[10px] font-semibold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full truncate max-w-[120px]" title="${targetDisplay}">${targetDisplay}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                        });
-                        cpList.innerHTML = cpHtml;
-                    }
+                        const candDisplayCPs = candCPs.filter(cp => modifiableKeys.includes(cp.key));
 
-                    // 3) Construire les features améliorées et re-prédire si des travaux sont possibles
-                    let newPrediction = consoTheoEP;
-                    let hasImprovement = false;
+                        // S'il n'y a pas de points critiques modifiables, cette classe candidate n'est pas intéressante
+                        // (l'utilisateur fait déjà mieux ou pareil). On passe à la classe supérieure.
+                        if (candDisplayCPs.length === 0) {
+                            testGradeIdx--;
+                            continue;
+                        }
 
-                    if (displayCriticalPoints.length > 0) {
-                        hasImprovement = true;
-                        const improvedFeatures = buildImprovedFeatures(result.features_used, allCriticalPoints, targetGrade);
-                        console.log('[Re-prédiction] Features améliorées:', improvedFeatures);
+                        // 2) Simuler la prédiction si l'utilisateur corrige ces points critiques
+                        const improvedFeatures = buildImprovedFeatures(result.features_used, candCPs, candidateGrade);
                         
                         let predictedValue = consoTheoEP;
                         let modelSuccess = false;
-                        try {
-                            const [modelRegion, modelSurfKey] = result.model_used.split('/');
-                            const modelFilePrefix = result.model_file_prefix || modelRegion;
-                            const modelUrl = `models_json/${modelRegion}/pipeline_${modelFilePrefix}_${modelSurfKey}_dpe.json`;
-                            console.log(`[Re-prédiction] URL: ${modelUrl}`);
-                            const predictor = new XGBoostPredictor();
-                            await predictor.loadModel(modelUrl);
-                            predictedValue = predictor.predict(improvedFeatures);
-                            console.log(`[Re-prédiction] Succès: ${predictedValue.toFixed(1)} kWh/an (vs ${consoTheoEP.toFixed(1)})`);
-                            modelSuccess = true;
-                        } catch (e) {
-                            console.warn('[Re-prédiction] Échec du modèle, pas d\'amélioration par défaut:', e.message);
+                        if (predictor) {
+                            try {
+                                predictedValue = predictor.predict(improvedFeatures);
+                                modelSuccess = true;
+                            } catch (e) {
+                                console.warn('[Re-prédiction] Échec calcul :', e.message);
+                            }
                         }
 
-                        // Taux d'économie minimum basé sur le nombre de travaux
-                        const minSavingsRate = Math.min(0.35, displayCriticalPoints.length * 0.06);
+                        // Calcul de la classe obtenue après ces travaux
+                        const minSavingsRate = Math.min(0.35, candDisplayCPs.length * 0.06);
                         const maxAllowedPrediction = consoTheoEP * (1 - minSavingsRate);
-
-                        if (modelSuccess && predictedValue < consoTheoEP) {
-                            newPrediction = Math.min(predictedValue, maxAllowedPrediction);
-                        } else {
-                            // Baisse logique en cas d'anomalie de prédiction (non-monotonie du modèle)
-                            const logicalSavingsRate = Math.min(0.40, displayCriticalPoints.length * 0.08);
-                            newPrediction = consoTheoEP * (1 - logicalSavingsRate);
-                            console.log(`[Amélioration] Utilisation de l'économie logique de ${Math.round(logicalSavingsRate * 100)}% (XGBoost non monotone)`);
-                        }
-                    } else {
-                        // Aucun point critique actionnable : pas d'amélioration proposable
-                        hasImprovement = false;
-                        console.log('[Desktop] Aucun point critique actionnable, pas d\'amélioration à proposer.');
-                    }
-
-                    const newKwhM2Raw = newPrediction / surfaceUsed;
-                    let newKwhM2 = newKwhM2Raw;
-
-                    if (hasImprovement) {
-                        const targetGradeIdx = ['A','B','C','D','E','F','G'].indexOf(targetGrade);
-                        const minKwhM2ForTarget = targetGradeIdx > 0 ? dpeScaleRef[targetGradeIdx - 1].max + 1 : 1;
-                        const maxKwhM2ForTarget = dpeScaleRef[targetGradeIdx].max;
                         
-                        // S'assurer de ne pas dépasser la borne maximale de la classe cible
-                        newKwhM2 = Math.min(newKwhM2, maxKwhM2ForTarget);
-                        // Borne basse pour éviter les prédictions trop optimistes
-                        newKwhM2 = Math.max(newKwhM2, minKwhM2ForTarget * 0.5);
-                    } else {
-                        // Pas d'amélioration possible : même consommation que l'état actuel
-                        newKwhM2 = kwhEP_m2;
-                    }
-
-                    const potentialGradeObj = getDpeGrade(newKwhM2);
-                    const economyPct = Math.max(0, Math.round(((kwhEP_m2 - newKwhM2) / kwhEP_m2) * 100));
-
-                    console.log(`[Desktop Amélioration] actuel: ${kwhEP_m2.toFixed(1)} → nouveau: ${newKwhM2.toFixed(1)} kWh/m², économie: ${economyPct}%`);
-
-                    // 4) Mettre à jour la section Potentiel
-                    const warningEl = document.getElementById('potentialWarning');
-                    if (warningEl) {
-                        if (!hasImprovement) {
-                            warningEl.classList.remove('hidden');
+                        let finalPredictedValue = predictedValue;
+                        if (modelSuccess && predictedValue < consoTheoEP) {
+                            finalPredictedValue = Math.min(predictedValue, maxAllowedPrediction);
                         } else {
-                            warningEl.classList.add('hidden');
+                            const logicalSavingsRate = Math.min(0.40, candDisplayCPs.length * 0.08);
+                            finalPredictedValue = consoTheoEP * (1 - logicalSavingsRate);
                         }
+                        
+                        const finalKwhM2 = finalPredictedValue / surfaceUsed;
+                        const predictedGradeObj = getDpeGrade(finalKwhM2);
+                        const predictedGrade = predictedGradeObj.grade;
+                        const predictedGradeIdx = DPE_GRADES_ORDER.indexOf(predictedGrade);
+
+                        // Si la classe prédite est meilleure que la classe actuelle (index plus petit)
+                        if (predictedGradeIdx < gradeIdx) {
+                            // Succès ! On a trouvé la classe et les travaux associés
+                            targetGrade = candidateGrade;
+                            allCriticalPoints = candCPs;
+                            displayCriticalPoints = candDisplayCPs;
+                            newPrediction = finalPredictedValue;
+                            hasImprovement = true;
+                            console.log(`[Re-prédiction Boucle] Classe cible choisie : ${targetGrade} (donne ${predictedGrade} avec ${displayCriticalPoints.length} travaux)`);
+                            break;
+                        }
+
+                        // On continue à chercher en ciblant une classe plus exigeante (testGradeIdx--)
+                        testGradeIdx--;
                     }
 
-                    document.getElementById('potentialGrade').textContent = potentialGradeObj.grade;
-                    document.getElementById('potentialGrade').className =
-                        `text-5xl font-extrabold mb-1 ${dpeGradeColors[potentialGradeObj.grade] || 'text-emerald-500'}`;
-                    document.getElementById('potentialValue').textContent = `${Math.round(newKwhM2)} kWh/m²/an`;
-                    document.getElementById('economyPercent').textContent = `~${economyPct}%`;
+                // Affichage dans l'UI
+                if (hasImprovement && displayCriticalPoints.length > 0) {
+                    const cpSection = document.getElementById('criticalPointsSection');
+                    cpSection.style.display = 'block';
+                    // On affiche la classe cible que l'utilisateur atteindra !
+                    const potentialGradeObjForDisplay = getDpeGrade(newPrediction / surfaceUsed);
+                    document.getElementById('targetClassBadge').textContent = potentialGradeObjForDisplay.grade;
 
-                    // Animer le ring
-                    const ringFraction = Math.max(0, Math.min(1, economyPct / 100));
-                    setTimeout(() => {
-                        const ring = document.getElementById('savingsRing');
-                        if (ring) ring.style.strokeDashoffset = 326.73 * (1 - ringFraction);
-                    }, 500);
+                    const cpList = document.getElementById('criticalPointsList');
+                    let cpHtml = '';
+                    displayCriticalPoints.forEach((cp, i) => {
+                        const getLabel = (v, key) => {
+                            if (key === 'presence_brasseur_air' || key === 'protection_solaire_exterieure') {
+                                return Number(v) === 1 ? 'Oui' : 'Non';
+                            }
+                            return (window.FEATURE_VALUE_LABELS && window.FEATURE_VALUE_LABELS[v]) ? window.FEATURE_VALUE_LABELS[v] : v;
+                        };
+                        
+                        const currentDisplay = (typeof cp.currentValue === 'number' && cp.key !== 'presence_brasseur_air' && cp.key !== 'protection_solaire_exterieure')
+                            ? Math.round(cp.currentValue * 100) / 100 + (cp.unit ? ` ${cp.unit}` : '')
+                            : getLabel(cp.currentValue, cp.key);
+                        const targetDisplay = (typeof cp.targetValue === 'number' && cp.key !== 'presence_brasseur_air' && cp.key !== 'protection_solaire_exterieure')
+                            ? Math.round(cp.targetValue * 100) / 100 + (cp.unit ? ` ${cp.unit}` : '')
+                            : getLabel(cp.targetValue, cp.key);
 
-                    // Calcul de l'économie en euros
-                    const savedEP = Math.max(0, consoTheoEP - (newKwhM2 * surfaceUsed));
-                    const savedEF = savedEP / convFactor;
-                    const savedEuros = savedEF * energyPrice;
-                    document.getElementById('savingsAmount').textContent = `${Math.round(savedEuros)} € par an`;
-                    document.getElementById('savingsInterval').textContent = savedEuros > 0 ? formatInterval(savedEuros, 'euro', true) : '';
+                        cpHtml += `
+                            <div class="flex items-center gap-3 p-3 bg-gradient-to-r from-red-50/80 to-amber-50/80 rounded-xl border border-red-200/50"
+                                 style="animation: fadeInUp .5s ease-out ${i * 0.08}s both;">
+                                <div class="text-xl flex-shrink-0">${cp.icon}</div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-xs font-bold text-gray-700">${cp.label}</p>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <span class="text-[10px] font-semibold text-red-600 bg-red-100 px-2 py-0.5 rounded-full truncate max-w-[120px]" title="${currentDisplay}">${currentDisplay}</span>
+                                        <span class="material-icons text-gray-400" style="font-size:14px">arrow_forward</span>
+                                        <span class="text-[10px] font-semibold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full truncate max-w-[120px]" title="${targetDisplay}">${targetDisplay}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    cpList.innerHTML = cpHtml;
+                }
 
-                    console.log(`[Desktop Économie] EP: ${savedEP.toFixed(0)}, EF: ${savedEF.toFixed(0)}, Euros: ${savedEuros.toFixed(0)}`);
+                const newKwhM2 = newPrediction / surfaceUsed;
+                const potentialGradeObj = getDpeGrade(newKwhM2);
+                const economyPct = Math.max(0, Math.round(((kwhEP_m2 - newKwhM2) / kwhEP_m2) * 100));
 
-                    // 5) Recommandations dynamiques
-                    renderRecommendations(displayCriticalPoints.length > 0 ? displayCriticalPoints : allCriticalPoints, consoTheoEP, newKwhM2 * surfaceUsed);
+                console.log(`[Desktop Amélioration] actuel: ${kwhEP_m2.toFixed(1)} → nouveau: ${newKwhM2.toFixed(1)} kWh/m², économie: ${economyPct}%`);
+
+                // 4) Mettre à jour la section Potentiel
+                const warningEl = document.getElementById('potentialWarning');
+                if (warningEl) {
+                    if (!hasImprovement) {
+                        warningEl.classList.remove('hidden');
+                    } else {
+                        warningEl.classList.add('hidden');
+                    }
+                }
+
+                document.getElementById('potentialGrade').textContent = potentialGradeObj.grade;
+                document.getElementById('potentialGrade').className =
+                    `text-5xl font-extrabold mb-1 ${dpeGradeColors[potentialGradeObj.grade] || 'text-emerald-500'}`;
+                document.getElementById('potentialValue').textContent = `${Math.round(newKwhM2)} kWh/m²/an`;
+                document.getElementById('economyPercent').textContent = `~${economyPct}%`;
+
+                // Animer le ring
+                const ringFraction = Math.max(0, Math.min(1, economyPct / 100));
+                setTimeout(() => {
+                    const ring = document.getElementById('savingsRing');
+                    if (ring) ring.style.strokeDashoffset = 326.73 * (1 - ringFraction);
+                }, 500);
+
+                // Calcul de l'économie en euros
+                const savedEP = Math.max(0, consoTheoEP - (newKwhM2 * surfaceUsed));
+                const savedEF = savedEP / convFactor;
+                const savedEuros = savedEF * energyPrice;
+                document.getElementById('savingsAmount').textContent = `${Math.round(savedEuros)} € par an`;
+                document.getElementById('savingsInterval').textContent = savedEuros > 0 ? formatInterval(savedEuros, 'euro', true) : '';
+
+                console.log(`[Desktop Économie] EP: ${savedEP.toFixed(0)}, EF: ${savedEF.toFixed(0)}, Euros: ${savedEuros.toFixed(0)}`);
+
+                // 5) Recommandations dynamiques
+                renderRecommendations(displayCriticalPoints.length > 0 ? displayCriticalPoints : allCriticalPoints, consoTheoEP, newKwhM2 * surfaceUsed);
                 } else if (currentGrade === 'A') {
                     // Déjà en classe A
                     document.getElementById('potentialGrade').textContent = 'A';
