@@ -1244,6 +1244,11 @@ function formatConfidenceInterval(val, type, region, surface, isEuro = false, co
 }
 
 // Export publics
+window.DPE_GRADES_ORDER = DPE_GRADES_ORDER;
+window.DPE_CLASS_AVERAGES = DPE_CLASS_AVERAGES;
+window.QUALITY_SCALES = QUALITY_SCALES;
+window.FEATURE_DIRECTION = FEATURE_DIRECTION;
+window.CRITICAL_POINT_LABELS = CRITICAL_POINT_LABELS;
 window.identifyCriticalPoints = identifyCriticalPoints;
 window.buildImprovedFeatures = buildImprovedFeatures;
 window.FEATURE_VALUE_LABELS = FEATURE_VALUE_LABELS;
